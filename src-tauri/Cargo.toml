@@ -1,0 +1,63 @@
+[package]
+name = "offpdf"
+version = "0.3.2"
+description = "Free, open-source, offline-first desktop PDF utility."
+authors = ["OffPDF contributors"]
+edition = "2021"
+rust-version = "1.85"
+
+# The library is what Tauri (and the mobile entrypoints) link against.
+[lib]
+name = "app_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-opener = "2"
+
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Cross-platform available-disk-space query.
+fs2 = "0.4"
+
+# Read/write PDF page boxes (used for cropping).
+lopdf = "0.34"
+
+# Glyph metrics for the bundled editor font (Noto Sans).
+ttf-parser = "0.25"
+
+# Decode common image formats so uploaded images can be wrapped into a PDF.
+image = { version = "0.25", default-features = false, features = [
+    "jpeg",
+    "png",
+    "gif",
+    "bmp",
+    "webp",
+    "tiff",
+] }
+# Decode iPhone/iPad HEIC and HEIF photos. libheif is built and linked into the
+# app so users do not need to install a system codec or upload their photos.
+heif-rs = { path = "vendor/heif-rs" }
+
+[dev-dependencies]
+flate2 = "1"
+
+[target.'cfg(any(target_os = "macos", windows, target_os = "linux"))'.dependencies]
+tauri-plugin-single-instance = "2"
+
+[features]
+# By default Tauri uses custom protocols. Keep network features off.
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

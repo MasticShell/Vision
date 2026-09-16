@@ -1,0 +1,155 @@
+//! OffPDF Tauri backend.
+//!
+//! Local-first, offline-only. The backend NEVER makes a network request.
+//! All PDF processing happens by spawning a local/bundled `qpdf` binary and
+//! streaming its output. Only file *paths* cross the IPC boundary — never file
+//! bytes — so multi-gigabyte PDFs are handled without buffering them in memory.
+//!
+//! ## Command contract (implemented in `commands::*`)
+//!
+//! Files / system (`commands::files`):
+//!   - `pick_pdf_files() -> Result<Vec<String>, AppError>`
+//!   - `pick_pdf_file() -> Result<Option<String>, AppError>`
+//!   - `pick_output_folder() -> Result<Option<String>, AppError>`
+//!   - `get_file_info(path: String) -> Result<FileInfo, AppError>`
+//!   - `check_disk_space(path: String, required_bytes: u64) -> Result<DiskSpaceInfo, AppError>`
+//!   - `open_path(path: String) -> Result<(), AppError>`
+//!   - `clear_temp_files() -> Result<u64, AppError>`  (bytes freed)
+//!   - `get_temp_dir() -> Result<String, AppError>`
+//!   - `take_opened_paths() -> Vec<String>`  (OS Open With / argv; paths only)
+//!
+//! PDF operations (`commands::pdf`) — all take a frontend-generated `job_id`
+//! and emit `job:update` events while running:
+//!   - `merge_pdfs(window, registry, job_id, input_paths: Vec<String>, output_path: String)`
+//!   - `split_pdf(window, registry, job_id, input_path: String, output_dir: String, mode: SplitMode)`
+//!   - `extract_pages(window, registry, job_id, input_path, output_path, pages: String)`
+//!   - `delete_pages(window, registry, job_id, input_path, output_path, pages: String)`
+//!   - `rotate_pages(window, registry, job_id, input_path, output_path, pages: String, angle: i32)`
+//!   - `reorder_pages(window, registry, job_id, input_path, output_path, order: String)`
+//!   - `optimize_pdf(window, registry, job_id, input_path, output_path)`
+//!   - all return `Result<JobResult, AppError>`
+//!
+//! Jobs (`commands::jobs`):
+//!   - `cancel_job(registry, job_id: String) -> Result<(), AppError>`
+
+mod commands;
+mod error;
+mod models;
+mod os_open;
+mod pdf_engine;
+mod utils;
+
+#[cfg(test)]
+mod ocr_langs_tests;
+
+use models::JobRegistry;
+use std::sync::Mutex;
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    let mut builder = tauri::Builder::default();
+
+    // First plugin: a second launch forwards argv to this process instead of
+    // opening another empty workspace. Local IPC only (named pipe / UDS / D-Bus).
+    #[cfg(any(windows, target_os = "linux", target_os = "macos"))]
+    {
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            os_open::focus_main_window(app);
+            os_open::enqueue_opened_paths(app, os_open::parse_opened_argv(args));
+        }));
+    }
+
+    builder
+        // Local file dialogs (open/save). No network.
+        .plugin(tauri_plugin_dialog::init())
+        // Open a file or folder in the OS default handler. No network.
+        .plugin(tauri_plugin_opener::init())
+        // Shared, cancellable job registry.
+        .manage(JobRegistry::default())
+        .manage(Mutex::new(os_open::OpenedPathQueue::default()))
+        .invoke_handler(tauri::generate_handler![
+            // files / system
+            commands::files::pick_pdf_files,
+            commands::files::pick_pdf_file,
+            commands::files::pick_output_folder,
+            commands::files::pick_image_file,
+            commands::files::preview_image,
+            commands::files::get_file_info,
+            commands::files::check_disk_space,
+            commands::files::open_path,
+            commands::files::copy_file,
+            commands::files::clear_temp_files,
+            commands::files::get_temp_dir,
+            os_open::take_opened_paths,
+            // pdf operations
+            commands::pdf::merge_pdfs,
+            commands::pdf::assemble_pdf,
+            commands::pdf::edit_pdf,
+            commands::pdf::split_pdf,
+            commands::pdf::extract_pages,
+            commands::pdf::delete_pages,
+            commands::pdf::rotate_pages,
+            commands::pdf::reorder_pages,
+            commands::pdf::optimize_pdf,
+            commands::pdf::compress_pdf,
+            commands::pdf::protect_pdf,
+            commands::pdf::unlock_pdf,
+            commands::pdf::add_page_numbers,
+            commands::pdf::stamp_pdf,
+            commands::pdf::edit_pdf_overlays,
+            commands::pdf::watermark_pdf,
+            commands::pdf::crop_pdf,
+            commands::pdf::poster_pdf,
+            commands::pdf::nup_pdf,
+            // jobs
+            commands::jobs::cancel_job,
+            // page preview / review
+            commands::render::renderer_available,
+            commands::render::render_thumbnails,
+            commands::render::image_to_pdf,
+            commands::render::pdf_to_images,
+            commands::render::pdf_text,
+            commands::render::page_pdf,
+            commands::render::pdf_outline,
+            commands::render::list_pdf_links,
+            commands::render::list_pdf_form_fields,
+            commands::render::list_pdf_annots,
+            commands::render::diff_pages,
+            commands::render::office_available,
+            commands::render::office_to_pdf,
+            commands::render::office_to_pdf_batch,
+            commands::render::pdf_to_office,
+            commands::render::ocr_available,
+            commands::render::ocr_list_langs,
+            commands::render::ocr_pdf,
+            commands::render::pdfa_pdf,
+            commands::render::detect_blank_pages,
+            commands::render::read_pdf_meta,
+            commands::render::write_pdf_meta,
+            commands::render::export_pdf_text,
+        ])
+        .setup(|app| {
+            os_open::enqueue_cold_start_argv(app.handle());
+            Ok(())
+        })
+        .build(tauri::generate_context!())
+        .expect("error while running the OffPDF application")
+        .run(|app, event| {
+            // Finder delivers Opened only on macOS. Linux/Windows use argv +
+            // single-instance (enqueue_cold_start_argv / plugin callback).
+            match event {
+                #[cfg(target_os = "macos")]
+                tauri::RunEvent::Opened { urls } => {
+                    let paths = urls
+                        .iter()
+                        .filter_map(|url| os_open::parse_opened_token(url.as_str()))
+                        .collect();
+                    os_open::enqueue_opened_paths(app, paths);
+                }
+                _ => {}
+            }
+        });
+}
+
+#[cfg(test)]
+mod os_open_tests;

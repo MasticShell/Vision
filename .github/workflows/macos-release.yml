@@ -1,0 +1,169 @@
+name: macOS Apple Silicon Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desktop-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  macos-arm64:
+    name: Build, sign, and notarize macOS arm64
+    if: github.ref == 'refs/heads/main'
+    runs-on: macos-15
+    timeout-minutes: 120
+    env:
+      APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+      APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+      APPLE_SIGNING_IDENTITY: ${{ vars.APPLE_SIGNING_IDENTITY }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Use stable Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build frontend assets for Rust tests
+        run: npm run build
+
+      - name: Smoke test HEIC and HEIF conversion
+        run: cargo test --manifest-path src-tauri/Cargo.toml --lib heic_and_heif_complete_the_jpeg_and_pdf_pipeline
+
+      - name: Install macOS PDF engines
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+        run: brew install qpdf poppler tesseract dylibbundler
+
+      - name: Prepare portable Apple Silicon engines
+        run: ./scripts/prepare-macos-arm64.sh
+
+      - name: Import Developer ID certificate
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          certificate_path="$RUNNER_TEMP/developer-id.p12"
+          keychain_path="$RUNNER_TEMP/offpdf-signing.keychain-db"
+
+          printf '%s' "$APPLE_CERTIFICATE" | base64 --decode > "$certificate_path"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$keychain_path"
+          security set-keychain-settings -lut 21600 "$keychain_path"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$keychain_path"
+          security import "$certificate_path" \
+            -k "$keychain_path" \
+            -P "$APPLE_CERTIFICATE_PASSWORD" \
+            -T /usr/bin/codesign \
+            -T /usr/bin/security
+          security set-key-partition-list \
+            -S apple-tool:,apple:,codesign: \
+            -s \
+            -k "$KEYCHAIN_PASSWORD" \
+            "$keychain_path"
+          security list-keychains -d user -s "$keychain_path"
+          security default-keychain -d user -s "$keychain_path"
+          security find-identity -v -p codesigning "$keychain_path"
+          rm -f "$certificate_path"
+
+      - name: Prepare App Store Connect notarization key
+        env:
+          APPLE_API_PRIVATE_KEY: ${{ secrets.APPLE_API_PRIVATE_KEY }}
+        run: |
+          api_key_path="$RUNNER_TEMP/AuthKey_${APPLE_API_KEY}.p8"
+          printf '%s' "$APPLE_API_PRIVATE_KEY" > "$api_key_path"
+          chmod 600 "$api_key_path"
+          echo "APPLE_API_KEY_PATH=$api_key_path" >> "$GITHUB_ENV"
+
+      - name: Sign bundled PDF engines
+        run: ./scripts/sign-macos-bundled-tools.sh
+
+      - name: Build signed and notarized DMG
+        uses: tauri-apps/tauri-action@v0
+        with:
+          args: --target aarch64-apple-darwin --bundles dmg
+
+      - name: Verify application signature and notarization ticket
+        run: |
+          dmg_path="$(find src-tauri/target/aarch64-apple-darwin/release/bundle/dmg -maxdepth 1 -name '*.dmg' -print -quit)"
+          test -n "$dmg_path"
+
+          mount_path="$RUNNER_TEMP/offpdf-dmg"
+          mkdir -p "$mount_path"
+          hdiutil attach "$dmg_path" -nobrowse -readonly -mountpoint "$mount_path"
+          trap 'hdiutil detach "$mount_path"' EXIT
+
+          app_path="$(find "$mount_path" -maxdepth 1 -name '*.app' -print -quit)"
+          test -n "$app_path"
+
+          codesign --verify --strict --verbose=2 "$dmg_path"
+          codesign --verify --deep --strict --verbose=2 "$app_path"
+          spctl --assess --type execute --verbose=2 "$app_path"
+          xcrun stapler validate "$app_path"
+
+      - name: Attach verified DMG to draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          tag="v${version}"
+          notes_path=".github/release-notes/${tag}.md"
+          dmg_path="$(find src-tauri/target/aarch64-apple-darwin/release/bundle/dmg -maxdepth 1 -name '*.dmg' -print -quit)"
+          test -f "$notes_path"
+          test -n "$dmg_path"
+
+          release_exists=false
+          if gh release view "$tag" --json isDraft >/dev/null 2>&1; then
+            release_exists=true
+          fi
+
+          if [[ "$release_exists" == "false" ]]; then
+            if ! gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${tag}" >/dev/null 2>&1; then
+              gh api --method POST "repos/${GITHUB_REPOSITORY}/git/refs" \
+                -f "ref=refs/tags/${tag}" \
+                -f "sha=${GITHUB_SHA}" >/dev/null
+            fi
+          fi
+
+          tag_sha="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${tag}" --jq '.sha')"
+          if [[ "$tag_sha" != "$GITHUB_SHA" ]]; then
+            echo "Refusing to attach a build from $GITHUB_SHA to $tag at $tag_sha." >&2
+            exit 1
+          fi
+
+          if [[ "$release_exists" == "true" ]]; then
+            is_draft="$(gh release view "$tag" --json isDraft --jq '.isDraft')"
+            if [[ "$is_draft" != "true" ]]; then
+              echo "Refusing to modify published release $tag." >&2
+              exit 1
+            fi
+          else
+            gh release create "$tag" \
+              --verify-tag \
+              --draft \
+              --title "OffPDF ${tag}" \
+              --notes-file "$notes_path"
+          fi
+
+          dmg_name="$(basename "$dmg_path")"
+          if gh release view "$tag" --json assets --jq '.assets[].name' | grep -Fqx "$dmg_name"; then
+            echo "Refusing to replace existing release asset $dmg_name." >&2
+            exit 1
+          fi
+
+          gh release upload "$tag" "$dmg_path"
