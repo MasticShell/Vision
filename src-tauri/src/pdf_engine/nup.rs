@@ -62,7 +62,11 @@ fn booklet_pairs(n: usize) -> Vec<[usize; 2]> {
     let blank_if_padding = |p: usize| if p <= n { p } else { 0 };
     (0..padded / 2)
         .map(|i| {
-            let (left, right) = if i % 2 == 0 { (padded - i, i + 1) } else { (i + 1, padded - i) };
+            let (left, right) = if i % 2 == 0 {
+                (padded - i, i + 1)
+            } else {
+                (i + 1, padded - i)
+            };
             [blank_if_padding(left), blank_if_padding(right)]
         })
         .collect()
@@ -159,9 +163,15 @@ fn media_box(doc: &Document, page_id: ObjectId) -> [f64; 4] {
             break;
         }
         steps += 1;
-        let Ok(dict) = doc.get_dictionary(id) else { break };
+        let Ok(dict) = doc.get_dictionary(id) else {
+            break;
+        };
         if let Ok(obj) = dict.get(b"MediaBox") {
-            let resolved = if let Ok(r) = obj.as_reference() { doc.get_object(r).ok() } else { Some(obj) };
+            let resolved = if let Ok(r) = obj.as_reference() {
+                doc.get_object(r).ok()
+            } else {
+                Some(obj)
+            };
             if let Some(arr) = resolved.and_then(|o| o.as_array().ok()) {
                 if arr.len() == 4 {
                     let mut v = [0.0; 4];
@@ -173,7 +183,12 @@ fn media_box(doc: &Document, page_id: ObjectId) -> [f64; 4] {
                         }
                     }
                     if ok {
-                        return [v[0].min(v[2]), v[1].min(v[3]), v[0].max(v[2]), v[1].max(v[3])];
+                        return [
+                            v[0].min(v[2]),
+                            v[1].min(v[3]),
+                            v[0].max(v[2]),
+                            v[1].max(v[3]),
+                        ];
                     }
                 }
             }
@@ -192,7 +207,9 @@ fn inherited(doc: &Document, page_id: ObjectId, key: &[u8]) -> Option<Object> {
             break;
         }
         steps += 1;
-        let Ok(dict) = doc.get_dictionary(id) else { break };
+        let Ok(dict) = doc.get_dictionary(id) else {
+            break;
+        };
         if let Ok(obj) = dict.get(key) {
             return Some(obj.clone());
         }
@@ -230,8 +247,11 @@ fn build_nup(doc: &mut Document, mode: Mode, sheet_w: f64, sheet_h: f64) -> Resu
             .get_page_content(pid)
             .map_err(|e| format!("Could not read page content: {e}"))?;
         let mb = media_box(doc, pid);
-        let rotate = inherited(doc, pid, b"Rotate").and_then(|o| o.as_i64().ok()).unwrap_or(0);
-        let resources = inherited(doc, pid, b"Resources").unwrap_or(Object::Dictionary(Dictionary::new()));
+        let rotate = inherited(doc, pid, b"Rotate")
+            .and_then(|o| o.as_i64().ok())
+            .unwrap_or(0);
+        let resources =
+            inherited(doc, pid, b"Resources").unwrap_or(Object::Dictionary(Dictionary::new()));
 
         let mut d = Dictionary::new();
         d.set(b"Type".to_vec(), Object::Name(b"XObject".to_vec()));
@@ -268,7 +288,9 @@ fn build_nup(doc: &mut Document, mode: Mode, sheet_w: f64, sheet_h: f64) -> Resu
                 continue; // blank (booklet padding / odd tail)
             }
             let (xid, mb, rotate) = xobjects[page_no - 1];
-            let Some(m) = place_matrix(mb, rotate, slots[slot_idx]) else { continue };
+            let Some(m) = place_matrix(mb, rotate, slots[slot_idx]) else {
+                continue;
+            };
             let name = format!("P{slot_idx}");
             ops.push_str(&format!(
                 "q\n{:.4} {:.4} {:.4} {:.4} {:.2} {:.2} cm\n/{name} Do\nQ\n",
@@ -276,7 +298,10 @@ fn build_nup(doc: &mut Document, mode: Mode, sheet_w: f64, sheet_h: f64) -> Resu
             ));
             xdict.set(name.into_bytes(), Object::Reference(xid));
         }
-        let content_id = doc.add_object(Object::Stream(Stream::new(Dictionary::new(), ops.into_bytes())));
+        let content_id = doc.add_object(Object::Stream(Stream::new(
+            Dictionary::new(),
+            ops.into_bytes(),
+        )));
 
         let mut res = Dictionary::new();
         res.set(b"XObject".to_vec(), Object::Dictionary(xdict));
@@ -340,7 +365,8 @@ pub fn nup(
     super::ensure_output_dir(output)?;
 
     let work = temp::root(app)?.join("work").join(job_id);
-    std::fs::create_dir_all(&work).map_err(|e| AppError::io("Could not create a temp directory.", e))?;
+    std::fs::create_dir_all(&work)
+        .map_err(|e| AppError::io("Could not create a temp directory.", e))?;
     let merged = work.join("merged.pdf").to_string_lossy().to_string();
 
     let result = (|| -> Result<Vec<String>, AppError> {
@@ -387,9 +413,17 @@ pub fn nup(
         // reject as "damaged" — save to a temp file and let qpdf rewrite a
         // clean, normalised PDF (exactly like poster.rs).
         let laid = work.join("nup.pdf").to_string_lossy().to_string();
-        doc.save(&laid).map_err(|e| AppError::io("Could not write the layout PDF.", e))?;
+        doc.save(&laid)
+            .map_err(|e| AppError::io("Could not write the layout PDF.", e))?;
         drop(doc);
-        crate::utils::process::run_qpdf(app, handle, job_id, &[laid, output.to_string()], "Finalizing", None)?;
+        crate::utils::process::run_qpdf(
+            app,
+            handle,
+            job_id,
+            &[laid, output.to_string()],
+            "Finalizing",
+            None,
+        )?;
         Ok(vec![output.to_string()])
     })();
 
@@ -417,8 +451,14 @@ mod tests {
 
     #[test]
     fn sequential_plans_pad_the_last_sheet() {
-        assert_eq!(sheet_plan(Mode::TwoUp, 5), vec![vec![1, 2], vec![3, 4], vec![5, 0]]);
-        assert_eq!(sheet_plan(Mode::FourUp, 6), vec![vec![1, 2, 3, 4], vec![5, 6, 0, 0]]);
+        assert_eq!(
+            sheet_plan(Mode::TwoUp, 5),
+            vec![vec![1, 2], vec![3, 4], vec![5, 0]]
+        );
+        assert_eq!(
+            sheet_plan(Mode::FourUp, 6),
+            vec![vec![1, 2, 3, 4], vec![5, 6, 0, 0]]
+        );
         assert_eq!(sheet_plan(Mode::TwoUp, 4).len(), 2);
     }
 
@@ -429,7 +469,10 @@ mod tests {
         assert_eq!(s[0], [0.0, 100.0, 50.0, 200.0]); // top-left
         assert_eq!(s[3], [50.0, 0.0, 100.0, 100.0]); // bottom-right
         let two = slot_rects(Mode::Booklet, 100.0, 200.0);
-        assert_eq!(two, vec![[0.0, 0.0, 50.0, 200.0], [50.0, 0.0, 100.0, 200.0]]);
+        assert_eq!(
+            two,
+            vec![[0.0, 0.0, 50.0, 200.0], [50.0, 0.0, 100.0, 200.0]]
+        );
     }
 
     #[test]
@@ -457,8 +500,14 @@ mod tests {
         // Displayed size is 842 × 595 (w/h swapped) → all corners inside slot.
         for (x, y) in [(0.0, 0.0), (595.0, 0.0), (0.0, 842.0), (595.0, 842.0)] {
             let (px, py) = map(x, y);
-            assert!(px >= GUTTER - 1e-6 && px <= 842.0 - GUTTER + 1e-6, "x out of slot: {px}");
-            assert!(py >= GUTTER - 1e-6 && py <= 595.0 - GUTTER + 1e-6, "y out of slot: {py}");
+            assert!(
+                px >= GUTTER - 1e-6 && px <= 842.0 - GUTTER + 1e-6,
+                "x out of slot: {px}"
+            );
+            assert!(
+                py >= GUTTER - 1e-6 && py <= 595.0 - GUTTER + 1e-6,
+                "y out of slot: {py}"
+            );
         }
     }
 

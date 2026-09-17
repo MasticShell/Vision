@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct DocumentId(pub String);
 
-/// Minimal page descriptor holding basic dimensions. 
+/// Minimal page descriptor holding basic dimensions.
 /// We do not load the full PDF objects here, just the info needed for the frontend to render the canvas.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PageDescriptor {
@@ -31,13 +31,12 @@ pub struct VisionDocument {
     pub id: DocumentId,
     pub source_path: String,
     pub metadata: DocumentMetadata,
-    
+
     // We only load page descriptors on demand or when strictly necessary.
     pub pages: Vec<PageDescriptor>,
 
     // Indicates if the document has modifications that are not yet saved to disk.
     pub is_dirty: bool,
-    
     // Future expansion: pending logical operations (crop, rotate, delete page, etc.)
     // pub pending_operations: Vec<LogicalOperation>,
 }

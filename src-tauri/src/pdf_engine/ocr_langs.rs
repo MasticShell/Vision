@@ -53,9 +53,7 @@ fn empty_lang() -> AppError {
         "No language selected",
         "Choose at least one installed OCR language before starting.",
     )
-    .with_suggestion(
-        "Select one or more languages from the packs installed on this machine.",
-    )
+    .with_suggestion("Select one or more languages from the packs installed on this machine.")
 }
 
 fn missing_lang(code: &str) -> AppError {

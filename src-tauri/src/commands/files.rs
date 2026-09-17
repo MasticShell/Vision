@@ -32,8 +32,9 @@ pub async fn pick_pdf_files(app: tauri::AppHandle) -> Result<Vec<String>, AppErr
             .add_filter(
                 "PDF, images & Office",
                 &[
-                    "pdf", "png", "jpg", "jpeg", "gif", "bmp", "webp", "tif", "tiff", "heic", "heif", "doc", "docx",
-                    "xls", "xlsx", "ppt", "pptx", "odt", "ods", "odp", "rtf", "csv", "html", "htm",
+                    "pdf", "png", "jpg", "jpeg", "gif", "bmp", "webp", "tif", "tiff", "heic",
+                    "heif", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "odt", "ods", "odp",
+                    "rtf", "csv", "html", "htm",
                 ],
             )
             .add_filter("PDF documents", &["pdf"])
@@ -58,8 +59,9 @@ pub async fn pick_pdf_file(app: tauri::AppHandle) -> Result<Option<String>, AppE
             .add_filter(
                 "PDF, images & Office",
                 &[
-                    "pdf", "png", "jpg", "jpeg", "gif", "bmp", "webp", "tif", "tiff", "heic", "heif", "doc", "docx",
-                    "xls", "xlsx", "ppt", "pptx", "odt", "ods", "odp", "rtf", "csv", "html", "htm",
+                    "pdf", "png", "jpg", "jpeg", "gif", "bmp", "webp", "tif", "tiff", "heic",
+                    "heif", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "odt", "ods", "odp",
+                    "rtf", "csv", "html", "htm",
                 ],
             )
             .add_filter("PDF documents", &["pdf"])
@@ -111,18 +113,20 @@ fn preview_image_sync(path: &str) -> Result<ImagePreview, AppError> {
     Ok(ImagePreview {
         width: w0,
         height: h0,
-        data_url: format!("data:image/png;base64,{}", crate::pdf_engine::render::base64(&buf)),
+        data_url: format!(
+            "data:image/png;base64,{}",
+            crate::pdf_engine::render::base64(&buf)
+        ),
     })
 }
 
 /// Open a folder picker for choosing an output directory. `None` if cancelled.
 #[tauri::command]
 pub async fn pick_output_folder(app: tauri::AppHandle) -> Result<Option<String>, AppError> {
-    let picked = tauri::async_runtime::spawn_blocking(move || {
-        app.dialog().file().blocking_pick_folder()
-    })
-    .await
-    .map_err(|e| AppError::io("The folder dialog could not be opened.", e))?;
+    let picked =
+        tauri::async_runtime::spawn_blocking(move || app.dialog().file().blocking_pick_folder())
+            .await
+            .map_err(|e| AppError::io("The folder dialog could not be opened.", e))?;
 
     Ok(picked.and_then(filepath_to_string))
 }
@@ -191,7 +195,8 @@ pub async fn open_path(app: tauri::AppHandle, path: String) -> Result<(), AppErr
 pub async fn copy_file(src: String, dst: String) -> Result<String, AppError> {
     tauri::async_runtime::spawn_blocking(move || {
         if let Some(parent) = Path::new(&dst).parent() {
-            std::fs::create_dir_all(parent).map_err(|e| AppError::io("Could not create the output folder.", e))?;
+            std::fs::create_dir_all(parent)
+                .map_err(|e| AppError::io("Could not create the output folder.", e))?;
         }
         std::fs::copy(&src, &dst).map_err(|e| AppError::io("Could not save the file.", e))?;
         Ok(dst)

@@ -12,22 +12,30 @@ const MAX_OUTLINE_BYTES: u64 = 400 * 1024 * 1024;
 const MAX_ITEMS: usize = 5000;
 
 fn decode_title(obj: &Object) -> String {
-    lopdf::decode_text_string(obj).unwrap_or_default().trim().to_string()
+    lopdf::decode_text_string(obj)
+        .unwrap_or_default()
+        .trim()
+        .to_string()
 }
 
 /// Resolve an outline item's destination to a 1-based page number, if possible.
-fn dest_page(doc: &Document, item: &lopdf::Dictionary, page_no: &HashMap<ObjectId, u32>) -> Option<u32> {
+fn dest_page(
+    doc: &Document,
+    item: &lopdf::Dictionary,
+    page_no: &HashMap<ObjectId, u32>,
+) -> Option<u32> {
     // /Dest directly, or /A action dict with /D.
-    let dest = item
-        .get(b"Dest")
-        .ok()
-        .cloned()
-        .or_else(|| {
-            item.get(b"A")
-                .ok()
-                .and_then(|a| a.as_reference().ok().and_then(|id| doc.get_dictionary(id).ok()).or_else(|| a.as_dict().ok()))
-                .and_then(|action| action.get(b"D").ok().cloned())
-        })?;
+    let dest = item.get(b"Dest").ok().cloned().or_else(|| {
+        item.get(b"A")
+            .ok()
+            .and_then(|a| {
+                a.as_reference()
+                    .ok()
+                    .and_then(|id| doc.get_dictionary(id).ok())
+                    .or_else(|| a.as_dict().ok())
+            })
+            .and_then(|action| action.get(b"D").ok().cloned())
+    })?;
 
     // dest may be a Reference to an array, or an array directly.
     let arr = match &dest {
@@ -54,10 +62,20 @@ fn walk(
         if guard > MAX_ITEMS || out.len() >= MAX_ITEMS {
             break;
         }
-        let Ok(dict) = doc.get_dictionary(id) else { break };
-        let title = dict.get(b"Title").ok().map(decode_title).unwrap_or_default();
+        let Ok(dict) = doc.get_dictionary(id) else {
+            break;
+        };
+        let title = dict
+            .get(b"Title")
+            .ok()
+            .map(decode_title)
+            .unwrap_or_default();
         if !title.is_empty() {
-            out.push(OutlineItem { title, page: dest_page(doc, dict, page_no), level });
+            out.push(OutlineItem {
+                title,
+                page: dest_page(doc, dict, page_no),
+                level,
+            });
         }
         if let Ok(first) = dict.get(b"First").and_then(|o| o.as_reference()) {
             walk(doc, first, level + 1, page_no, out);
@@ -85,12 +103,16 @@ pub fn extract(path: &str) -> Result<Vec<OutlineItem>, AppError> {
         Ok(id) => id,
         Err(_) => return Ok(vec![]),
     };
-    let Ok(catalog) = doc.get_dictionary(root_id) else { return Ok(vec![]) };
+    let Ok(catalog) = doc.get_dictionary(root_id) else {
+        return Ok(vec![]);
+    };
     let outlines_id = match catalog.get(b"Outlines").and_then(|o| o.as_reference()) {
         Ok(id) => id,
         Err(_) => return Ok(vec![]),
     };
-    let Ok(outlines) = doc.get_dictionary(outlines_id) else { return Ok(vec![]) };
+    let Ok(outlines) = doc.get_dictionary(outlines_id) else {
+        return Ok(vec![]);
+    };
 
     let mut out = Vec::new();
     if let Ok(first) = outlines.get(b"First").and_then(|o| o.as_reference()) {

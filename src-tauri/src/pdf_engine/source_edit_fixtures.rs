@@ -248,7 +248,10 @@ endcmap\n\
 CMapName currentdict /CMap defineresource pop\n\
 end\n\
 end\n";
-        let tu_id = doc.add_object(Object::Stream(Stream::new(Dictionary::new(), cmap.to_vec())));
+        let tu_id = doc.add_object(Object::Stream(Stream::new(
+            Dictionary::new(),
+            cmap.to_vec(),
+        )));
         type0.set("ToUnicode", tu_id);
     }
     doc.add_object(Object::Dictionary(type0))
@@ -321,12 +324,7 @@ fn build_type3() -> Document {
     doc
 }
 
-fn add_form(
-    doc: &mut Document,
-    bbox: [i64; 4],
-    resources: Dictionary,
-    content: &[u8],
-) -> ObjectId {
+fn add_form(doc: &mut Document, bbox: [i64; 4], resources: Dictionary, content: &[u8]) -> ObjectId {
     let mut d = Dictionary::new();
     d.set("Type", "XObject");
     d.set("Subtype", "Form");
@@ -604,9 +602,8 @@ mod tests {
             path.is_file(),
             "CORPUS-MANIFEST: fixtures/source-edit/manifest.json must exist"
         );
-        let raw = std::fs::read_to_string(&path).unwrap_or_else(|e| {
-            panic!("CORPUS-MANIFEST: could not read {}: {e}", path.display())
-        });
+        let raw = std::fs::read_to_string(&path)
+            .unwrap_or_else(|e| panic!("CORPUS-MANIFEST: could not read {}: {e}", path.display()));
         let value: serde_json::Value = serde_json::from_str(&raw)
             .unwrap_or_else(|e| panic!("CORPUS-MANIFEST: manifest.json is not JSON: {e}"));
         let manifest: Manifest = serde_json::from_value(value.clone()).unwrap_or_else(|e| {
@@ -703,9 +700,8 @@ mod tests {
     }
 
     fn dump_streams(path: &Path) -> String {
-        let mut doc = Document::load(path).unwrap_or_else(|e| {
-            panic!("load {}: {e}", path.display())
-        });
+        let mut doc =
+            Document::load(path).unwrap_or_else(|e| panic!("load {}: {e}", path.display()));
         let _ = doc.decompress();
         let mut out = String::new();
         for obj in doc.objects.values() {
@@ -719,9 +715,8 @@ mod tests {
     }
 
     fn load_doc(path: &Path) -> Document {
-        let mut doc = Document::load(path).unwrap_or_else(|e| {
-            panic!("load {}: {e}", path.display())
-        });
+        let mut doc =
+            Document::load(path).unwrap_or_else(|e| panic!("load {}: {e}", path.display()));
         let _ = doc.decompress();
         doc
     }
@@ -957,15 +952,15 @@ mod tests {
         let bytes = match obj {
             Object::Stream(s) => s.get_plain_content().unwrap_or_else(|_| s.content.clone()),
             Object::Reference(id) => match doc.get_object(*id) {
-                Ok(Object::Stream(s)) => s.get_plain_content().unwrap_or_else(|_| s.content.clone()),
+                Ok(Object::Stream(s)) => {
+                    s.get_plain_content().unwrap_or_else(|_| s.content.clone())
+                }
                 _ => return false,
             },
             _ => return false,
         };
         let text = String::from_utf8_lossy(&bytes);
-        text.contains("beginbfchar")
-            || text.contains("beginbfrange")
-            || text.contains("begincmap")
+        text.contains("beginbfchar") || text.contains("beginbfrange") || text.contains("begincmap")
     }
 
     fn cid_fonts(doc: &Document) -> Vec<Dictionary> {
@@ -1017,9 +1012,7 @@ mod tests {
     }
 
     fn form_has_text(content: &str) -> bool {
-        has_operator(content, "BT")
-            || has_operator(content, "Tj")
-            || has_operator(content, "TJ")
+        has_operator(content, "BT") || has_operator(content, "Tj") || has_operator(content, "TJ")
     }
 
     fn has_nested_form_text(doc: &Document) -> bool {
@@ -1149,9 +1142,7 @@ mod tests {
             }
             serde_json::Value::String(s) => {
                 if s.eq_ignore_ascii_case("editable") || s.eq_ignore_ascii_case("editable: true") {
-                    panic!(
-                        "CORPUS-NO-EDITABLE-CLAIM: {path} uses capability language {s:?}"
-                    );
+                    panic!("CORPUS-NO-EDITABLE-CLAIM: {path} uses capability language {s:?}");
                 }
             }
             _ => {}
@@ -1167,10 +1158,7 @@ mod tests {
         );
 
         let (manifest, _) = load_manifest();
-        assert_eq!(
-            manifest.version, 1,
-            "CORPUS-MANIFEST: version must be 1"
-        );
+        assert_eq!(manifest.version, 1, "CORPUS-MANIFEST: version must be 1");
         assert!(
             !manifest.license.trim().is_empty(),
             "CORPUS-MANIFEST: license must be non-empty"
@@ -1550,9 +1538,9 @@ mod tests {
                         "CORPUS-GEOM: fixture {} names user-unit so geometry.userUnit must not be 1",
                         row.id
                     );
-                    let hit = pages.iter().any(|p| {
-                        (page_user_unit(p) - row.geometry.user_unit).abs() < 1e-6
-                    });
+                    let hit = pages
+                        .iter()
+                        .any(|p| (page_user_unit(p) - row.geometry.user_unit).abs() < 1e-6);
                     assert!(
                         hit,
                         "CORPUS-GEOM: fixture {} must set /UserUnit {}",
@@ -1614,5 +1602,4 @@ mod tests {
             );
         }
     }
-
 }

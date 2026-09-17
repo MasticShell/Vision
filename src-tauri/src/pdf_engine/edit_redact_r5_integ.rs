@@ -137,7 +137,13 @@ fn dict_from<'a>(doc: &'a Document, obj: &'a Object) -> Option<&'a Dictionary> {
 }
 
 fn catalog_kid_id(doc: &Document, index: usize) -> Option<ObjectId> {
-    let pages_id = doc.catalog().ok()?.get(b"Pages").ok()?.as_reference().ok()?;
+    let pages_id = doc
+        .catalog()
+        .ok()?
+        .get(b"Pages")
+        .ok()?
+        .as_reference()
+        .ok()?;
     let kids = doc
         .get_dictionary(pages_id)
         .ok()?
@@ -209,7 +215,10 @@ fn apply_redactions_typeless_sibling_keeps_resources() {
     let src_p0 = catalog_kid_id(&src_doc, 0).expect("Kids[0]");
     let src_p1 = catalog_kid_id(&src_doc, 1).expect("Kids[1]");
     assert_eq!(
-        src_doc.get_dictionary(src_p0).ok().and_then(|d| d.type_name().ok()),
+        src_doc
+            .get_dictionary(src_p0)
+            .ok()
+            .and_then(|d| d.type_name().ok()),
         Some("Page"),
         "R-PAGETYPE: Kids[0] must be /Type /Page"
     );

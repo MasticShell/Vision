@@ -14,8 +14,8 @@ use crate::pdf_engine::edit_links::{
     SessionLink, MAX_LINKS,
 };
 use crate::pdf_engine::edit_redact::{
-    apply_redactions, apply_redactions_with_app, collect_redact_probes_for_pages,
-    verify_redaction, RedactRegion,
+    apply_redactions, apply_redactions_with_app, collect_redact_probes_for_pages, verify_redaction,
+    RedactRegion,
 };
 use crate::pdf_engine::validate_output::{
     catalog_flags_from_doc, content_digest, validate_staged_pdf, ContentDigest, OutputSnapshot,
@@ -1509,10 +1509,7 @@ fn redact_regions_from_doc(document: &EditDocumentIn) -> Vec<RedactRegion> {
         .collect()
 }
 
-fn collect_redact_probes(
-    path: &Path,
-    regions: &[RedactRegion],
-) -> Result<Vec<Vec<u8>>, AppError> {
+fn collect_redact_probes(path: &Path, regions: &[RedactRegion]) -> Result<Vec<Vec<u8>>, AppError> {
     let doc = Document::load(path)
         .map_err(|e| AppError::engine_failed(format!("Could not read the PDF: {e}")))?;
     collect_redact_probes_for_pages(&doc, regions)
@@ -1762,14 +1759,7 @@ where
                     .map_err(|e| AppError::io("Could not read the editor font.", e))?;
                 let font = FontInfo::parse(font_bytes)?;
                 write_overlay_pdf(&overlay_str, &geoms, document, &font, cancel)?;
-                overlay_onto_assembled(
-                    &tmp,
-                    &tmp_str,
-                    &overlay_str,
-                    &geoms,
-                    work,
-                    &mut run,
-                )?;
+                overlay_onto_assembled(&tmp, &tmp_str, &overlay_str, &geoms, work, &mut run)?;
             }
         } else if has_paint {
             let font_bytes = std::fs::read(font_path)

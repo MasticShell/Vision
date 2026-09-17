@@ -11,15 +11,15 @@ use std::process::{Command, Stdio};
 use std::sync::Arc;
 use tauri::Manager;
 
-
-
 fn soffice_missing() -> AppError {
     AppError::new(
         "OFFICE_MISSING",
         "LibreOffice not found",
         "Converting Office documents needs LibreOffice, which couldn't be located.",
     )
-    .with_suggestion("Install LibreOffice (libreoffice.org) — on macOS: brew install --cask libreoffice.")
+    .with_suggestion(
+        "Install LibreOffice (libreoffice.org) — on macOS: brew install --cask libreoffice.",
+    )
 }
 
 /// Locate the `soffice` binary across platforms.
@@ -44,8 +44,6 @@ pub fn resolve_soffice(app: &tauri::AppHandle) -> PathBuf {
         }
     }
 
-
-
     for p in [
         "/opt/homebrew/bin/soffice",
         "/usr/local/bin/soffice",
@@ -67,7 +65,9 @@ pub fn available(app: &tauri::AppHandle) -> bool {
     let exe = resolve_soffice(app);
     let mut cmd = Command::new(&exe);
     configure_soffice_command(&mut cmd, &exe);
-    cmd.arg("--version").stdout(Stdio::null()).stderr(Stdio::null());
+    cmd.arg("--version")
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
 
     matches!(cmd.status(), Ok(status) if status.success())
 }
@@ -105,7 +105,6 @@ fn configure_soffice_command(cmd: &mut Command, exe: &Path) {
     } else {
         cmd.env("PATH", program_dir);
     }
-
 }
 
 fn hash_hex(s: &str) -> String {
@@ -191,7 +190,6 @@ fn run_soffice(
     cmd.arg("--outdir").arg(out_dir).arg(input);
     cmd.stdout(Stdio::null()).stderr(Stdio::piped());
 
-
     let result = (move || -> Result<String, AppError> {
         // When run inside a job, register the child so cancel_job can kill it.
         if let Some(h) = handle {
@@ -268,7 +266,10 @@ pub fn to_pdfa(
         handle,
         input_pdf,
         out_dir,
-        &["--convert-to", "pdf:writer_pdf_Export:{\"SelectPdfVersion\":{\"type\":\"long\",\"value\":\"2\"}}"],
+        &[
+            "--convert-to",
+            "pdf:writer_pdf_Export:{\"SelectPdfVersion\":{\"type\":\"long\",\"value\":\"2\"}}",
+        ],
     )?;
     let expected = Path::new(out_dir).join(format!("{}.pdf", stem_of(input_pdf)));
     if !expected.exists() {
@@ -305,9 +306,7 @@ pub fn from_pdf(
                 "Excel export not supported",
                 "LibreOffice cannot convert a PDF into an Excel workbook.",
             )
-            .with_suggestion(
-                "Convert to Word (.docx) instead, then copy the tables into Excel.",
-            ))
+            .with_suggestion("Convert to Word (.docx) instead, then copy the tables into Excel."))
         }
         other => {
             return Err(AppError::new(

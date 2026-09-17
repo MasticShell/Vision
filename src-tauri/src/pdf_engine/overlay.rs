@@ -228,9 +228,14 @@ fn build_overlay(
     off[1] = buf.len();
     buf.extend_from_slice(b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n");
 
-    let kids: String = (0..count).map(|i| format!("{} 0 R", 5 + i * 2)).collect::<Vec<_>>().join(" ");
+    let kids: String = (0..count)
+        .map(|i| format!("{} 0 R", 5 + i * 2))
+        .collect::<Vec<_>>()
+        .join(" ");
     off[2] = buf.len();
-    buf.extend_from_slice(format!("2 0 obj\n<< /Type /Pages /Kids [{kids}] /Count {count} >>\nendobj\n").as_bytes());
+    buf.extend_from_slice(
+        format!("2 0 obj\n<< /Type /Pages /Kids [{kids}] /Count {count} >>\nendobj\n").as_bytes(),
+    );
 
     off[3] = buf.len();
     buf.extend_from_slice(format!("3 0 obj\n{FONT_DICT}\nendobj\n").as_bytes());
@@ -282,16 +287,26 @@ fn build_overlay(
         buf.extend_from_slice(format!("{:010} 00000 n \n", off[n]).as_bytes());
     }
     buf.extend_from_slice(
-        format!("trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n", total_objs + 1).as_bytes(),
+        format!(
+            "trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n",
+            total_objs + 1
+        )
+        .as_bytes(),
     );
 
-    std::fs::write(out_path, &buf).map_err(|e| AppError::output_not_writable(&format!("{out_path} ({e})")))?;
+    std::fs::write(out_path, &buf)
+        .map_err(|e| AppError::output_not_writable(&format!("{out_path} ({e})")))?;
     Ok(())
 }
 
 /// Build an overlay (one page per entry in `sizes`, matching dimensions) where
 /// every page shows the same diagonal, semi-transparent watermark text.
-fn build_watermark(out_path: &str, sizes: &[(f64, f64)], text: &str, opacity: f64) -> Result<(), AppError> {
+fn build_watermark(
+    out_path: &str,
+    sizes: &[(f64, f64)],
+    text: &str,
+    opacity: f64,
+) -> Result<(), AppError> {
     let safe = encode_pdf_text(text);
     let c = std::f64::consts::FRAC_1_SQRT_2; // cos/sin 45°
     let op = opacity.clamp(0.05, 1.0);
@@ -304,13 +319,20 @@ fn build_watermark(out_path: &str, sizes: &[(f64, f64)], text: &str, opacity: f6
     buf.extend_from_slice(b"%PDF-1.5\n%\xE2\xE3\xCF\xD3\n");
     off[1] = buf.len();
     buf.extend_from_slice(b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n");
-    let kids: String = (0..count).map(|i| format!("{} 0 R", 6 + i * 2)).collect::<Vec<_>>().join(" ");
+    let kids: String = (0..count)
+        .map(|i| format!("{} 0 R", 6 + i * 2))
+        .collect::<Vec<_>>()
+        .join(" ");
     off[2] = buf.len();
-    buf.extend_from_slice(format!("2 0 obj\n<< /Type /Pages /Kids [{kids}] /Count {count} >>\nendobj\n").as_bytes());
+    buf.extend_from_slice(
+        format!("2 0 obj\n<< /Type /Pages /Kids [{kids}] /Count {count} >>\nendobj\n").as_bytes(),
+    );
     off[3] = buf.len();
     buf.extend_from_slice(format!("3 0 obj\n{FONT_DICT}\nendobj\n").as_bytes());
     off[4] = buf.len();
-    buf.extend_from_slice(format!("4 0 obj\n<< /Type /ExtGState /ca {op:.2} /CA {op:.2} >>\nendobj\n").as_bytes());
+    buf.extend_from_slice(
+        format!("4 0 obj\n<< /Type /ExtGState /ca {op:.2} /CA {op:.2} >>\nendobj\n").as_bytes(),
+    );
 
     for (i, &(w, h)) in sizes.iter().enumerate() {
         // Scale the mark with the page, and roughly center the rotated (45°)
@@ -326,7 +348,11 @@ fn build_watermark(out_path: &str, sizes: &[(f64, f64)], text: &str, opacity: f6
         let page_obj = 6 + i * 2;
         off[content_obj] = buf.len();
         buf.extend_from_slice(
-            format!("{content_obj} 0 obj\n<< /Length {} >>\nstream\n{content}endstream\nendobj\n", content.len()).as_bytes(),
+            format!(
+                "{content_obj} 0 obj\n<< /Length {} >>\nstream\n{content}endstream\nendobj\n",
+                content.len()
+            )
+            .as_bytes(),
         );
         off[page_obj] = buf.len();
         buf.extend_from_slice(
@@ -345,9 +371,14 @@ fn build_watermark(out_path: &str, sizes: &[(f64, f64)], text: &str, opacity: f6
         buf.extend_from_slice(format!("{:010} 00000 n \n", off[n]).as_bytes());
     }
     buf.extend_from_slice(
-        format!("trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n", total_objs + 1).as_bytes(),
+        format!(
+            "trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n",
+            total_objs + 1
+        )
+        .as_bytes(),
     );
-    std::fs::write(out_path, &buf).map_err(|e| AppError::output_not_writable(&format!("{out_path} ({e})")))?;
+    std::fs::write(out_path, &buf)
+        .map_err(|e| AppError::output_not_writable(&format!("{out_path} ({e})")))?;
     Ok(())
 }
 
@@ -365,7 +396,11 @@ pub fn add_watermark(
         return Err(AppError::new("NO_PAGES", "No pages", "Add a PDF first."));
     }
     if text.trim().is_empty() {
-        return Err(AppError::new("NO_TEXT", "No watermark text", "Type the watermark text."));
+        return Err(AppError::new(
+            "NO_TEXT",
+            "No watermark text",
+            "Type the watermark text.",
+        ));
     }
     for g in groups {
         super::require_input(&g.path)?;
@@ -373,7 +408,8 @@ pub fn add_watermark(
     super::ensure_output_dir(output)?;
 
     let work = temp::root(app)?.join("work").join(job_id);
-    std::fs::create_dir_all(&work).map_err(|e| AppError::io("Could not create a temp directory.", e))?;
+    std::fs::create_dir_all(&work)
+        .map_err(|e| AppError::io("Could not create a temp directory.", e))?;
     let merged = work.join("merged.pdf").to_string_lossy().to_string();
     let overlay = work.join("overlay.pdf").to_string_lossy().to_string();
 
@@ -385,7 +421,13 @@ pub fn add_watermark(
             app,
             handle,
             job_id,
-            &[merged.clone(), "--overlay".into(), overlay.clone(), "--".into(), output.to_string()],
+            &[
+                merged.clone(),
+                "--overlay".into(),
+                overlay.clone(),
+                "--".into(),
+                output.to_string(),
+            ],
             "Adding watermark",
             None,
         )?;
@@ -418,7 +460,8 @@ pub fn add_page_numbers_formatted(
     super::ensure_output_dir(output)?;
 
     let work = temp::root(app)?.join("work").join(job_id);
-    std::fs::create_dir_all(&work).map_err(|e| AppError::io("Could not create a temp directory.", e))?;
+    std::fs::create_dir_all(&work)
+        .map_err(|e| AppError::io("Could not create a temp directory.", e))?;
     let merged = work.join("merged.pdf").to_string_lossy().to_string();
     let overlay = work.join("overlay.pdf").to_string_lossy().to_string();
 
@@ -430,7 +473,13 @@ pub fn add_page_numbers_formatted(
             app,
             handle,
             job_id,
-            &[merged.clone(), "--overlay".into(), overlay.clone(), "--".into(), output.to_string()],
+            &[
+                merged.clone(),
+                "--overlay".into(),
+                overlay.clone(),
+                "--".into(),
+                output.to_string(),
+            ],
             "Adding page numbers",
             None,
         )?;
@@ -447,19 +496,34 @@ mod tests {
 
     #[test]
     fn format_label_pads_and_prefixes() {
-        let f = NumberFormat { prefix: "DAVA-".into(), pad_width: 6, with_date: false };
+        let f = NumberFormat {
+            prefix: "DAVA-".into(),
+            pad_width: 6,
+            with_date: false,
+        };
         assert_eq!(format_label(123, &f, None), "DAVA-000123");
-        assert_eq!(format_label(123, &f, Some("02.07.2026")), "DAVA-000123 \u{2013} 02.07.2026");
+        assert_eq!(
+            format_label(123, &f, Some("02.07.2026")),
+            "DAVA-000123 \u{2013} 02.07.2026"
+        );
         // No padding, no prefix behaves like a plain number.
         assert_eq!(format_label(7, &NumberFormat::default(), None), "7");
         // Counter wider than the pad is never truncated.
-        let narrow = NumberFormat { prefix: "".into(), pad_width: 2, with_date: false };
+        let narrow = NumberFormat {
+            prefix: "".into(),
+            pad_width: 2,
+            with_date: false,
+        };
         assert_eq!(format_label(12345, &narrow, None), "12345");
     }
 
     #[test]
     fn turkish_prefix_encodes_via_differences() {
-        let f = NumberFormat { prefix: "EK-Şğı ".into(), pad_width: 3, with_date: false };
+        let f = NumberFormat {
+            prefix: "EK-Şğı ".into(),
+            pad_width: 3,
+            with_date: false,
+        };
         let label = format_label(5, &f, None);
         // İ Ş ğ ı map onto the /Differences codes; output stays pure ASCII.
         assert!(encode_pdf_text(&label).is_ascii());

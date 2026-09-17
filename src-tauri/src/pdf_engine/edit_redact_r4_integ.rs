@@ -213,7 +213,8 @@ fn finish_two_page(
     catalog.set("Pages", pages_id);
     let catalog_id = doc.add_object(Object::Dictionary(catalog));
     doc.trailer.set("Root", catalog_id);
-    doc.save(path).unwrap_or_else(|e| panic!("write {what}: {e}"));
+    doc.save(path)
+        .unwrap_or_else(|e| panic!("write {what}: {e}"));
 }
 
 /// Pages `/Fm0` = `(SECRET) Tj`; page 0 `/Fm0 Do`; page 1 `(KEEPME)` no `/Fm0`.
@@ -318,10 +319,7 @@ fn write_share_inherited_image(path: &Path) {
 fn write_zip_content_and_form(path: &Path) {
     let mut doc = Document::with_version("1.5");
     let pages_id = doc.new_object_id();
-    let fm0 = add_form(
-        &mut doc,
-        b"BT /F1 12 Tf 72 200 Td (FORM-ZIP-PROBE) Tj ET\n",
-    );
+    let fm0 = add_form(&mut doc, b"BT /F1 12 Tf 72 200 Td (FORM-ZIP-PROBE) Tj ET\n");
     let p0 = add_page(
         &mut doc,
         pages_id,
@@ -654,9 +652,7 @@ fn sample_rgb(data: &[u8], width: u32, height: u32, x: u32, y: u32) -> Result<[u
 }
 
 fn rgb_close(got: [u8; 3], want: [u8; 3], tol: u8) -> bool {
-    got.iter()
-        .zip(want)
-        .all(|(g, w)| g.abs_diff(w) <= tol)
+    got.iter().zip(want).all(|(g, w)| g.abs_diff(w) <= tol)
 }
 
 fn run_qpdf(qpdf: &Path, args: &[String]) -> Result<(), AppError> {
@@ -831,7 +827,10 @@ fn verify_leftover_form_on_page0_must_err_when_probe_page_counts_match() {
     if apply_copy(&src, &dest, &regions).is_err() {
         write_successful_looking_burn(&dest);
     }
-    assert!(dest.is_file(), "R-ZIP: dest must exist to plant leftover Form");
+    assert!(
+        dest.is_file(),
+        "R-ZIP: dest must exist to plant leftover Form"
+    );
 
     let planted = scratch.pdf("planted.pdf");
     plant_leftover_form_on_page0(&dest, &planted, &form_body);

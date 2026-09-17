@@ -14,8 +14,6 @@ use std::process::{Command, Stdio};
 use std::sync::Arc;
 use tauri::Manager;
 
-
-
 fn tesseract_exe() -> &'static str {
     "tesseract"
 }
@@ -28,10 +26,7 @@ pub fn resolve_tesseract(app: &tauri::AppHandle) -> PathBuf {
         return found;
     }
 
-    for c in [
-        "/usr/bin/tesseract",
-        "/usr/local/bin/tesseract",
-    ] {
+    for c in ["/usr/bin/tesseract", "/usr/local/bin/tesseract"] {
         let p = PathBuf::from(c);
         if p.exists() {
             return p;

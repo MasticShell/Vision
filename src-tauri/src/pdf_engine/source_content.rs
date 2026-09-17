@@ -61,10 +61,7 @@ pub fn classify_source_content(path: &Path) -> Result<Vec<SourceOccurrence>, App
     classify_doc(&doc, fp)
 }
 
-pub fn resolve_source_locator(
-    path: &Path,
-    locator: &str,
-) -> Result<SourceOccurrence, AppError> {
+pub fn resolve_source_locator(path: &Path, locator: &str) -> Result<SourceOccurrence, AppError> {
     if !path.is_file() {
         return Err(AppError::invalid_pdf(&path_str(path)));
     }
@@ -94,9 +91,8 @@ fn open_source(path: &Path) -> Result<(Document, u64), AppError> {
     }
     let bytes = std::fs::read(path).map_err(|_| AppError::invalid_pdf(&path_str(path)))?;
     let fp = fnv1a_u64(&bytes);
-    let doc = Document::load(path).map_err(|e| {
-        AppError::invalid_pdf(&path_str(path)).with_details(format!("lopdf: {e}"))
-    })?;
+    let doc = Document::load(path)
+        .map_err(|e| AppError::invalid_pdf(&path_str(path)).with_details(format!("lopdf: {e}")))?;
     if doc.is_encrypted() {
         return Err(encrypted());
     }
@@ -104,7 +100,9 @@ fn open_source(path: &Path) -> Result<(Document, u64), AppError> {
         return Err(signed());
     }
     if doc.catalog().is_err() {
-        return Err(malformed_content("The PDF catalog is missing or unreadable."));
+        return Err(malformed_content(
+            "The PDF catalog is missing or unreadable.",
+        ));
     }
     Ok((doc, fp))
 }
@@ -531,9 +529,7 @@ impl Walker<'_> {
         geom_unsafe: bool,
     ) -> Result<(), AppError> {
         if form_depth >= MAX_FORM_DEPTH {
-            return Err(malformed_content(
-                "Form XObject nesting is deeper than 8.",
-            ));
+            return Err(malformed_content("Form XObject nesting is deeper than 8."));
         }
         if visiting.contains(&form_id) {
             return Err(malformed_content("A Form XObject refers to itself."));
@@ -730,7 +726,9 @@ impl Walker<'_> {
         }
         // A Form stream/operator can be visited more than once on the same
         // page. Include its deterministic occurrence ordinal, not just its ID.
-        pending.locator.push_str(&format!(":{}", self.pending.len()));
+        pending
+            .locator
+            .push_str(&format!(":{}", self.pending.len()));
         self.pending.push(pending);
         Ok(())
     }
@@ -901,11 +899,7 @@ fn font_dict<'a>(doc: &'a Document, font: &FontRef<'a>) -> Option<&'a Dictionary
 }
 
 fn xobject_subtype<'a>(doc: &'a Document, id: ObjectId) -> Option<&'a [u8]> {
-    object_dict(doc, id)?
-        .get(b"Subtype")
-        .ok()?
-        .as_name()
-        .ok()
+    object_dict(doc, id)?.get(b"Subtype").ok()?.as_name().ok()
 }
 
 fn xobject_is_form(doc: &Document, id: ObjectId) -> bool {
@@ -1104,8 +1098,7 @@ fn tounicode_usable(doc: &Document, font: &Dictionary) -> bool {
         _ => return false,
     };
     let text = String::from_utf8_lossy(&bytes);
-    text.contains("begincmap")
-        && (text.contains("beginbfchar") || text.contains("beginbfrange"))
+    text.contains("begincmap") && (text.contains("beginbfchar") || text.contains("beginbfrange"))
 }
 
 fn glyph_width_sum(doc: &Document, font: &Dictionary, bytes: &[u8]) -> f64 {
@@ -1361,11 +1354,7 @@ fn is_pattern_name(operands: &[Object]) -> bool {
         .any(|o| o.as_name().ok() == Some(b"Pattern"))
 }
 
-fn operand_selects_pattern_space(
-    doc: &Document,
-    owners: &[ObjectId],
-    operands: &[Object],
-) -> bool {
+fn operand_selects_pattern_space(doc: &Document, owners: &[ObjectId], operands: &[Object]) -> bool {
     let Some(obj) = operands.first() else {
         return false;
     };

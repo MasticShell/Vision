@@ -8,10 +8,10 @@
 
 #![cfg(test)]
 
+use super::source_edit_fixtures::write_corpus_fixture;
 use crate::error::AppError;
 use crate::pdf_engine::edit_overlay::PdfRectIn;
 use crate::pdf_engine::edit_redact::{apply_redactions, verify_redaction, RedactRegion};
-use super::source_edit_fixtures::write_corpus_fixture;
 use lopdf::{Dictionary, Document, Object, Stream};
 use std::path::{Path, PathBuf};
 
@@ -97,19 +97,11 @@ fn write_one_page(path: &Path, content: &[u8], extras: &[(&[u8], Object)]) {
 }
 
 fn write_secret_text(path: &Path) {
-    write_one_page(
-        path,
-        b"BT /F1 12 Tf 72 720 Td (SECRET) Tj ET\n",
-        &[],
-    );
+    write_one_page(path, b"BT /F1 12 Tf 72 720 Td (SECRET) Tj ET\n", &[]);
 }
 
 fn write_ocr_probe(path: &Path) {
-    write_one_page(
-        path,
-        b"BT /F1 12 Tf 3 Tr 72 720 Td (OCRPROBE) Tj ET\n",
-        &[],
-    );
+    write_one_page(path, b"BT /F1 12 Tf 3 Tr 72 720 Td (OCRPROBE) Tj ET\n", &[]);
 }
 
 fn write_vector_path(path: &Path) {
@@ -525,9 +517,8 @@ fn verify_redaction_fails_closed_when_page_content_probe_remains() {
     let scratch = Scratch::new("r-verify-probe");
     let dest = scratch.pdf("dest.pdf");
     write_secret_text(&dest);
-    let err = verify_redaction(&dest, &[b"SECRET".as_slice()], &[cover_secret()]).expect_err(
-        "R-VERIFY: verification must fail-closed if the page-content probe remains",
-    );
+    let err = verify_redaction(&dest, &[b"SECRET".as_slice()], &[cover_secret()])
+        .expect_err("R-VERIFY: verification must fail-closed if the page-content probe remains");
     assert!(
         !err.code.trim().is_empty(),
         "R-VERIFY: fail-closed AppError must have a code"

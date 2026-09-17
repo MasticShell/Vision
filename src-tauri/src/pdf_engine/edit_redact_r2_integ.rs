@@ -155,7 +155,10 @@ fn write_two_page_identical_secret(path: &Path) {
     let mut doc = Document::with_version("1.5");
     let pages_id = doc.new_object_id();
     let stream = b"BT /F1 12 Tf 72 720 Td (SECRET) Tj ET\n".to_vec();
-    let content1 = doc.add_object(Object::Stream(Stream::new(Dictionary::new(), stream.clone())));
+    let content1 = doc.add_object(Object::Stream(Stream::new(
+        Dictionary::new(),
+        stream.clone(),
+    )));
     let content2 = doc.add_object(Object::Stream(Stream::new(Dictionary::new(), stream)));
 
     let mut page1 = Dictionary::new();
@@ -258,7 +261,8 @@ fn write_flatten_leftover_field(path: &Path) {
     catalog.set("AcroForm", acro_id);
     let catalog_id = doc.add_object(Object::Dictionary(catalog));
     doc.trailer.set("Root", catalog_id);
-    doc.save(path).expect("write flatten leftover-field fixture");
+    doc.save(path)
+        .expect("write flatten leftover-field fixture");
 }
 
 fn page_id_at(doc: &Document, page_index: u32) -> Option<ObjectId> {
@@ -459,9 +463,8 @@ fn apply_redactions_corpus_geom_user_unit() {
     let src = scratch.pdf("src.pdf");
     let dest = scratch.pdf("dest.pdf");
     write_corpus_fixture("geom-user-unit", &src).expect("write geom-user-unit");
-    apply_copy(&src, &dest, &[cover_path()]).expect(
-        "R-UU: apply_redactions must succeed on corpus geom-user-unit (/UserUnit 2)",
-    );
+    apply_copy(&src, &dest, &[cover_path()])
+        .expect("R-UU: apply_redactions must succeed on corpus geom-user-unit (/UserUnit 2)");
     assert!(dest.is_file(), "R-UU: dest must be published");
     assert!(
         !dest_has_re_op(&dest, 0, 72.0, 72.0, 100.0, 100.0),

@@ -20,7 +20,14 @@ fn page_size(app: &tauri::AppHandle, merged: &str, page: u32, dir: &std::path::P
     let one = dir.join("one.pdf");
     let one_str = one.to_string_lossy().to_string();
     let mut cmd = Command::new(qpdf::resolve_qpdf(app));
-    cmd.args(["--empty", "--pages", merged, &page.to_string(), "--", &one_str]);
+    cmd.args([
+        "--empty",
+        "--pages",
+        merged,
+        &page.to_string(),
+        "--",
+        &one_str,
+    ]);
     cmd.stdout(Stdio::null()).stderr(Stdio::null());
     #[cfg(windows)]
     {
@@ -42,10 +49,22 @@ fn page_size(app: &tauri::AppHandle, merged: &str, page: u32, dir: &std::path::P
     }
 }
 
-fn build_overlay(out: &str, w: f64, h: f64, text: &str, x: f64, y: f64, fs: f64, color: [f64; 3]) -> Result<(), AppError> {
+fn build_overlay(
+    out: &str,
+    w: f64,
+    h: f64,
+    text: &str,
+    x: f64,
+    y: f64,
+    fs: f64,
+    color: [f64; 3],
+) -> Result<(), AppError> {
     let content = format!(
         "{:.3} {:.3} {:.3} rg\nBT\n/F1 {fs:.1} Tf\n{x:.1} {y:.1} Td\n({}) Tj\nET\n",
-        color[0], color[1], color[2], overlay::encode_pdf_text(text)
+        color[0],
+        color[1],
+        color[2],
+        overlay::encode_pdf_text(text)
     );
     let mut buf: Vec<u8> = Vec::new();
     let mut off = [0usize; 6];
@@ -57,7 +76,13 @@ fn build_overlay(out: &str, w: f64, h: f64, text: &str, x: f64, y: f64, fs: f64,
     off[3] = buf.len();
     buf.extend_from_slice(format!("3 0 obj\n{}\nendobj\n", overlay::FONT_DICT).as_bytes());
     off[4] = buf.len();
-    buf.extend_from_slice(format!("4 0 obj\n<< /Length {} >>\nstream\n{content}endstream\nendobj\n", content.len()).as_bytes());
+    buf.extend_from_slice(
+        format!(
+            "4 0 obj\n<< /Length {} >>\nstream\n{content}endstream\nendobj\n",
+            content.len()
+        )
+        .as_bytes(),
+    );
     off[5] = buf.len();
     buf.extend_from_slice(
         format!(
@@ -71,8 +96,11 @@ fn build_overlay(out: &str, w: f64, h: f64, text: &str, x: f64, y: f64, fs: f64,
     for n in 1..=5 {
         buf.extend_from_slice(format!("{:010} 00000 n \n", off[n]).as_bytes());
     }
-    buf.extend_from_slice(format!("trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n").as_bytes());
-    std::fs::write(out, &buf).map_err(|e| AppError::output_not_writable(&format!("{out} ({e})")))?;
+    buf.extend_from_slice(
+        format!("trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n").as_bytes(),
+    );
+    std::fs::write(out, &buf)
+        .map_err(|e| AppError::output_not_writable(&format!("{out} ({e})")))?;
     Ok(())
 }
 
@@ -101,7 +129,8 @@ pub fn stamp_text(
     super::ensure_output_dir(output)?;
 
     let work = temp::root(app)?.join("work").join(job_id);
-    std::fs::create_dir_all(&work).map_err(|e| AppError::io("Could not create a temp directory.", e))?;
+    std::fs::create_dir_all(&work)
+        .map_err(|e| AppError::io("Could not create a temp directory.", e))?;
     let merged = work.join("merged.pdf").to_string_lossy().to_string();
     let overlay = work.join("overlay.pdf").to_string_lossy().to_string();
 
@@ -136,7 +165,14 @@ pub fn stamp_text(
             app,
             handle,
             job_id,
-            &[merged.clone(), "--overlay".into(), overlay.clone(), format!("--to={page}"), "--".into(), output.to_string()],
+            &[
+                merged.clone(),
+                "--overlay".into(),
+                overlay.clone(),
+                format!("--to={page}"),
+                "--".into(),
+                output.to_string(),
+            ],
             "Stamping",
             None,
         )?;

@@ -26,9 +26,9 @@ const UNIFORM_MIN_MEAN: f64 = 160.0;
 /// Unknown values fall back to "normal".
 pub(crate) fn threshold_for(sensitivity: &str) -> f64 {
     match sensitivity {
-        "strict" => 0.0005,    // 0.05 % — only truly empty pages
-        "aggressive" => 0.01,  // 1 %    — also catches specks / punch holes
-        _ => 0.003,            // 0.3 %  — "normal"
+        "strict" => 0.0005,   // 0.05 % — only truly empty pages
+        "aggressive" => 0.01, // 1 %    — also catches specks / punch holes
+        _ => 0.003,           // 0.3 %  — "normal"
     }
 }
 

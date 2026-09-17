@@ -1,6 +1,9 @@
-use serde::{Deserialize, Serialize};
-use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
 use crate::core::errors::VisionError;
+use serde::{Deserialize, Serialize};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum JobState {

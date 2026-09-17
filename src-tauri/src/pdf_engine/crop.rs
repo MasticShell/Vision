@@ -27,7 +27,9 @@ fn inherited_box(doc: &Document, page_id: ObjectId, key: &[u8]) -> Option<[f64; 
             break;
         }
         steps += 1;
-        let Ok(dict) = doc.get_dictionary(id) else { break };
+        let Ok(dict) = doc.get_dictionary(id) else {
+            break;
+        };
         if let Ok(obj) = dict.get(key) {
             let resolved = if let Ok(r) = obj.as_reference() {
                 doc.get_object(r).ok()
@@ -45,7 +47,12 @@ fn inherited_box(doc: &Document, page_id: ObjectId, key: &[u8]) -> Option<[f64; 
                         }
                     }
                     if ok {
-                        return Some([v[0].min(v[2]), v[1].min(v[3]), v[0].max(v[2]), v[1].max(v[3])]);
+                        return Some([
+                            v[0].min(v[2]),
+                            v[1].min(v[3]),
+                            v[0].max(v[2]),
+                            v[1].max(v[3]),
+                        ]);
                     }
                 }
             }
@@ -107,7 +114,12 @@ fn page_dict_box(doc: &Document, page_id: ObjectId, key: &[u8]) -> Option<[f64; 
     for (i, e) in arr.iter().enumerate() {
         v[i] = num(e, doc)?;
     }
-    Some([v[0].min(v[2]), v[1].min(v[3]), v[0].max(v[2]), v[1].max(v[3])])
+    Some([
+        v[0].min(v[2]),
+        v[1].min(v[3]),
+        v[0].max(v[2]),
+        v[1].max(v[3]),
+    ])
 }
 
 /// Resolve a page-level TrimBox. qpdf overlay alignment does not inherit it.
@@ -169,7 +181,9 @@ pub(crate) fn page_rotation(doc: &Document, page_id: ObjectId) -> i64 {
             break;
         }
         steps += 1;
-        let Ok(dict) = doc.get_dictionary(id) else { break };
+        let Ok(dict) = doc.get_dictionary(id) else {
+            break;
+        };
         if let Ok(obj) = dict.get(b"Rotate") {
             let resolved = if let Ok(r) = obj.as_reference() {
                 doc.get_object(r).ok()
@@ -208,7 +222,8 @@ pub fn crop(
     super::ensure_output_dir(output)?;
 
     let work = temp::root(app)?.join("work").join(job_id);
-    std::fs::create_dir_all(&work).map_err(|e| AppError::io("Could not create a temp directory.", e))?;
+    std::fs::create_dir_all(&work)
+        .map_err(|e| AppError::io("Could not create a temp directory.", e))?;
     let merged = work.join("merged.pdf").to_string_lossy().to_string();
 
     let result = (|| -> Result<Vec<String>, AppError> {
@@ -251,7 +266,11 @@ pub fn crop(
             if let Ok(dict) = doc.get_object_mut(id).and_then(|o| o.as_dict_mut()) {
                 dict.set(b"CropBox".to_vec(), rect.clone());
                 // Shrink the MediaBox too, but never grow it past the original.
-                if nx0 >= mb[0] - 0.01 && ny0 >= mb[1] - 0.01 && nx1 <= mb[2] + 0.01 && ny1 <= mb[3] + 0.01 {
+                if nx0 >= mb[0] - 0.01
+                    && ny0 >= mb[1] - 0.01
+                    && nx1 <= mb[2] + 0.01
+                    && ny1 <= mb[3] + 0.01
+                {
                     dict.set(b"MediaBox".to_vec(), rect);
                 }
                 // Print boxes from the source could poke outside the new window.
@@ -265,9 +284,17 @@ pub fn crop(
         // as "damaged". Save to a temp file, then let qpdf rewrite a clean,
         // normalised PDF before handing it back.
         let cropped = work.join("cropped.pdf").to_string_lossy().to_string();
-        doc.save(&cropped).map_err(|e| AppError::io("Could not write the cropped PDF.", e))?;
+        doc.save(&cropped)
+            .map_err(|e| AppError::io("Could not write the cropped PDF.", e))?;
         drop(doc);
-        run_qpdf(app, handle, job_id, &[cropped, output.to_string()], "Finalizing", None)?;
+        run_qpdf(
+            app,
+            handle,
+            job_id,
+            &[cropped, output.to_string()],
+            "Finalizing",
+            None,
+        )?;
         Ok(vec![output.to_string()])
     })();
 

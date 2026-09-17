@@ -700,7 +700,9 @@ fn flatten_redact_leftover_field_v_must_warn() {
         &work,
         &redact_doc(0, 60.0, 700.0, 160.0, 40.0),
     )
-    .expect("R-FORMV: flatten+redact export must complete so leftover /V can warn (not fail-closed)");
+    .expect(
+        "R-FORMV: flatten+redact export must complete so leftover /V can warn (not fail-closed)",
+    );
     assert!(
         dest.is_file() || !paths.is_empty(),
         "R-FORMV: dest must be published on Ok"

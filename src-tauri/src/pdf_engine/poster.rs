@@ -40,9 +40,15 @@ fn media_box(doc: &Document, page_id: ObjectId) -> [f64; 4] {
             break;
         }
         steps += 1;
-        let Ok(dict) = doc.get_dictionary(id) else { break };
+        let Ok(dict) = doc.get_dictionary(id) else {
+            break;
+        };
         if let Ok(obj) = dict.get(b"MediaBox") {
-            let resolved = if let Ok(r) = obj.as_reference() { doc.get_object(r).ok() } else { Some(obj) };
+            let resolved = if let Ok(r) = obj.as_reference() {
+                doc.get_object(r).ok()
+            } else {
+                Some(obj)
+            };
             if let Some(arr) = resolved.and_then(|o| o.as_array().ok()) {
                 if arr.len() == 4 {
                     let mut v = [0.0; 4];
@@ -55,7 +61,12 @@ fn media_box(doc: &Document, page_id: ObjectId) -> [f64; 4] {
                     }
                     if ok {
                         // Normalise so x0<x1, y0<y1.
-                        return [v[0].min(v[2]), v[1].min(v[3]), v[0].max(v[2]), v[1].max(v[3])];
+                        return [
+                            v[0].min(v[2]),
+                            v[1].min(v[3]),
+                            v[0].max(v[2]),
+                            v[1].max(v[3]),
+                        ];
                     }
                 }
             }
@@ -74,7 +85,9 @@ fn inherited(doc: &Document, page_id: ObjectId, key: &[u8]) -> Option<Object> {
             break;
         }
         steps += 1;
-        let Ok(dict) = doc.get_dictionary(id) else { break };
+        let Ok(dict) = doc.get_dictionary(id) else {
+            break;
+        };
         if let Ok(obj) = dict.get(key) {
             return Some(obj.clone());
         }
@@ -142,7 +155,8 @@ pub fn poster(
     super::ensure_output_dir(output)?;
 
     let work = temp::root(app)?.join("work").join(job_id);
-    std::fs::create_dir_all(&work).map_err(|e| AppError::io("Could not create a temp directory.", e))?;
+    std::fs::create_dir_all(&work)
+        .map_err(|e| AppError::io("Could not create a temp directory.", e))?;
     let merged = work.join("merged.pdf").to_string_lossy().to_string();
 
     let result = (|| -> Result<Vec<String>, AppError> {
@@ -160,7 +174,14 @@ pub fn poster(
                 app,
                 handle,
                 job_id,
-                &["--empty".into(), "--pages".into(), merged.clone(), page.to_string(), "--".into(), one.clone()],
+                &[
+                    "--empty".into(),
+                    "--pages".into(),
+                    merged.clone(),
+                    page.to_string(),
+                    "--".into(),
+                    one.clone(),
+                ],
                 "Selecting page",
                 None,
             )?;
@@ -183,11 +204,9 @@ pub fn poster(
         let mut doc = Document::load(&one)
             .map_err(|e| AppError::engine_failed(format!("Could not read the page: {e}")))?;
 
-        let orig_id = *doc
-            .get_pages()
-            .values()
-            .next()
-            .ok_or_else(|| AppError::engine_failed("The selected page could not be read.".to_string()))?;
+        let orig_id = *doc.get_pages().values().next().ok_or_else(|| {
+            AppError::engine_failed("The selected page could not be read.".to_string())
+        })?;
 
         // Read everything we need from the source page before mutating it.
         let mb = media_box(&doc, orig_id);
@@ -199,8 +218,11 @@ pub fn poster(
             .ok()
             .and_then(|d| d.get(b"Contents").ok().cloned())
             .unwrap_or(Object::Array(vec![]));
-        let resources_obj = inherited(&doc, orig_id, b"Resources").unwrap_or(Object::Dictionary(Dictionary::new()));
-        let rotate = inherited(&doc, orig_id, b"Rotate").and_then(|o| o.as_i64().ok()).unwrap_or(0);
+        let resources_obj =
+            inherited(&doc, orig_id, b"Resources").unwrap_or(Object::Dictionary(Dictionary::new()));
+        let rotate = inherited(&doc, orig_id, b"Rotate")
+            .and_then(|o| o.as_i64().ok())
+            .unwrap_or(0);
         let pages_id = doc
             .get_dictionary(orig_id)
             .ok()
@@ -228,13 +250,20 @@ pub fn poster(
             return Err(AppError::new(
                 "TOO_MANY_TILES",
                 "Too many sheets",
-                format!("This would make {} sheets. Use a larger sheet size or less overlap.", cols * rows),
+                format!(
+                    "This would make {} sheets. Use a larger sheet size or less overlap.",
+                    cols * rows
+                ),
             ));
         }
 
         let _ = app.emit(
             "job:update",
-            crate::models::JobUpdate::new(job_id, "running", &format!("Tiling into {cols} × {rows} = {} sheets", cols * rows)),
+            crate::models::JobUpdate::new(
+                job_id,
+                "running",
+                &format!("Tiling into {cols} × {rows} = {} sheets", cols * rows),
+            ),
         );
 
         // Base content stream ids (shared by every tile).
@@ -246,8 +275,14 @@ pub fn poster(
         // Shared q / Q wrappers so cut marks draw in a clean graphics state.
         let (q_id, qq_id) = if marks {
             (
-                Some(doc.add_object(Object::Stream(Stream::new(Dictionary::new(), b"q\n".to_vec())))),
-                Some(doc.add_object(Object::Stream(Stream::new(Dictionary::new(), b"Q\n".to_vec())))),
+                Some(doc.add_object(Object::Stream(Stream::new(
+                    Dictionary::new(),
+                    b"q\n".to_vec(),
+                )))),
+                Some(doc.add_object(Object::Stream(Stream::new(
+                    Dictionary::new(),
+                    b"Q\n".to_vec(),
+                )))),
             )
         } else {
             (None, None)
@@ -271,8 +306,7 @@ pub fn poster(
                 let tile_rect = rect(tx0, ty0, tx1, ty1);
 
                 let contents_for_tile = if marks {
-                    let marks_id =
-                        doc.add_object(Object::Stream(cut_marks(tx0, ty0, tw, th)));
+                    let marks_id = doc.add_object(Object::Stream(cut_marks(tx0, ty0, tw, th)));
                     let mut arr: Vec<Object> = Vec::with_capacity(base_ids.len() + 3);
                     arr.push(Object::Reference(q_id.unwrap()));
                     for b in &base_ids {
@@ -317,7 +351,11 @@ pub fn poster(
         }
 
         if tile_ids.is_empty() {
-            return Err(AppError::new("NO_TILES", "Nothing to tile", "The page produced no tiles."));
+            return Err(AppError::new(
+                "NO_TILES",
+                "Nothing to tile",
+                "The page produced no tiles.",
+            ));
         }
 
         // Point the page tree at the new tiles.
@@ -337,9 +375,17 @@ pub fn poster(
         // as "damaged". Save to a temp file, then let qpdf rewrite a clean,
         // normalised PDF (object sharing — so file size — is preserved).
         let tiled = work.join("tiled.pdf").to_string_lossy().to_string();
-        doc.save(&tiled).map_err(|e| AppError::io("Could not write the poster PDF.", e))?;
+        doc.save(&tiled)
+            .map_err(|e| AppError::io("Could not write the poster PDF.", e))?;
         drop(doc);
-        crate::utils::process::run_qpdf(app, handle, job_id, &[tiled, output.to_string()], "Finalizing", None)?;
+        crate::utils::process::run_qpdf(
+            app,
+            handle,
+            job_id,
+            &[tiled, output.to_string()],
+            "Finalizing",
+            None,
+        )?;
         Ok(vec![output.to_string()])
     })();
 

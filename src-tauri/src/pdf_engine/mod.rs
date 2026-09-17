@@ -38,9 +38,9 @@ pub mod qpdf;
 pub mod render;
 pub mod source_content;
 #[cfg(test)]
-mod source_edit_fixtures;
-#[cfg(test)]
 mod source_content_integ;
+#[cfg(test)]
+mod source_edit_fixtures;
 pub mod stamp;
 pub mod textexport;
 pub mod validate_output;

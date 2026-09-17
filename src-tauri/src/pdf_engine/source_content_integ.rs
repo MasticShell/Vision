@@ -708,7 +708,10 @@ fn classify_malformed_inline_tail_returns_error_without_panicking() {
     content.push(b'\\');
     write_helvetica_page(&path, &content);
     let result = std::panic::catch_unwind(|| classify_source_content(&path));
-    assert!(result.is_ok(), "Malformed content must return an AppError, not panic");
+    assert!(
+        result.is_ok(),
+        "Malformed content must return an AppError, not panic"
+    );
     assert!(result.unwrap().is_err());
 }
 
@@ -733,14 +736,24 @@ fn classify_repeated_form_occurrences_have_unique_locators() {
     let mut repeated = bytes.clone();
     repeated.extend_from_slice(b"\n1 0 0 1 100 0 cm\n");
     repeated.extend_from_slice(&bytes);
-    doc.objects.insert(ids[0], Object::Stream(Stream::new(Dictionary::new(), repeated)));
+    doc.objects.insert(
+        ids[0],
+        Object::Stream(Stream::new(Dictionary::new(), repeated)),
+    );
     doc.save(&path).unwrap();
     let hits = classify(&path, "REVIEW-REPEATED-FORM");
     assert!(hits.len() >= 2);
     let locators: std::collections::HashSet<_> = hits.iter().map(|h| &h.locator).collect();
-    assert_eq!(locators.len(), hits.len(), "Every occurrence needs its own locator");
+    assert_eq!(
+        locators.len(),
+        hits.len(),
+        "Every occurrence needs its own locator"
+    );
     assert_ne!(hits[0].rect, hits[1].rect);
-    assert_eq!(resolve_source_locator(&path, &hits[1].locator).unwrap(), hits[1]);
+    assert_eq!(
+        resolve_source_locator(&path, &hits[1].locator).unwrap(),
+        hits[1]
+    );
     assert_eq!(classify(&path, "REVIEW-REPEATED-FORM"), hits);
 }
 
@@ -1149,7 +1162,10 @@ fn classify_q_restores_type3_after_helvetica() {
 fn classify_tc_advances_second_tj() {
     let scratch = Scratch::new("r8-tc");
     let path = scratch.file("tc-two-tj.pdf");
-    write_helvetica_page(&path, b"BT /F1 12 Tf 2 Tc 72 720 Td (Hi) Tj (there) Tj ET\n");
+    write_helvetica_page(
+        &path,
+        b"BT /F1 12 Tf 2 Tc 72 720 Td (Hi) Tj (there) Tj ET\n",
+    );
     let hits = classify(&path, "R8");
     let texts: Vec<&SourceOccurrence> = hits.iter().filter(|o| kind_token(o) == "text").collect();
     assert_eq!(
@@ -1485,10 +1501,7 @@ fn write_unique_rgb_image(path: &Path, content: &[u8]) {
 fn classify_stacked_cm_image_origin() {
     let scratch = Scratch::new("r13a-stacked-cm");
     let path = scratch.file("stacked-cm.pdf");
-    write_unique_rgb_image(
-        &path,
-        b"q 2 0 0 2 0 0 cm 20 0 0 20 36 200 cm /Im0 Do Q\n",
-    );
+    write_unique_rgb_image(&path, b"q 2 0 0 2 0 0 cm 20 0 0 20 36 200 cm /Im0 Do Q\n");
     let hits = classify(&path, "R13a");
     let occ = first_of_kind(&hits, "image", "R13a");
     assert_supported_text_or_image(occ, "image", "R13a");
@@ -1666,11 +1679,17 @@ fn classify_contents_array_two_streams_do_not_fuse() {
     assert!(
         texts.iter().any(|o| (o.rect.y - 720.0).abs() <= 1.0),
         "R14: expected a text occurrence at y≈720 (Hi); got {:?}",
-        texts.iter().map(|o| (o.rect.x, o.rect.y)).collect::<Vec<_>>()
+        texts
+            .iter()
+            .map(|o| (o.rect.x, o.rect.y))
+            .collect::<Vec<_>>()
     );
     assert!(
         texts.iter().any(|o| (o.rect.y - 680.0).abs() <= 1.0),
         "R14: expected a text occurrence at y≈680 (Lo); got {:?}",
-        texts.iter().map(|o| (o.rect.x, o.rect.y)).collect::<Vec<_>>()
+        texts
+            .iter()
+            .map(|o| (o.rect.x, o.rect.y))
+            .collect::<Vec<_>>()
     );
 }

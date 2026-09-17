@@ -3691,7 +3691,9 @@ mod tests {
         write_flatten_fixture(&dest);
         let result = crate::pdf_engine::edit_annots::apply_markup_annots(&dest, &[], true);
         assert_eq!(
-            result.expect_err("interactive form must block annotation-only flatten").code,
+            result
+                .expect_err("interactive form must block annotation-only flatten")
+                .code,
             "FORM_FLATTEN_REQUIRED"
         );
         let doc = load(&dest);

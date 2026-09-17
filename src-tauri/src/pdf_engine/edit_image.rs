@@ -115,7 +115,18 @@ pub fn jpeg_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
         }
         if matches!(
             marker,
-            0xC0 | 0xC1 | 0xC2 | 0xC3 | 0xC5 | 0xC6 | 0xC7 | 0xC9 | 0xCA | 0xCB | 0xCD | 0xCE | 0xCF
+            0xC0 | 0xC1
+                | 0xC2
+                | 0xC3
+                | 0xC5
+                | 0xC6
+                | 0xC7
+                | 0xC9
+                | 0xCA
+                | 0xCB
+                | 0xCD
+                | 0xCE
+                | 0xCF
         ) {
             if len < 7 {
                 return None;
@@ -141,7 +152,9 @@ pub fn inspect_image(path: &str) -> Result<InspectedImage, AppError> {
         )
         .with_suggestion("Choose the image again.")
     })?;
-    let meta = file.metadata().map_err(|e| AppError::io("Could not read the image.", e))?;
+    let meta = file
+        .metadata()
+        .map_err(|e| AppError::io("Could not read the image.", e))?;
     if !meta.file_type().is_file() {
         return Err(bad_type());
     }

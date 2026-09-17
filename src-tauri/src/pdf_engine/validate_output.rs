@@ -86,12 +86,8 @@ fn opt_boxes_near(a: Option<[f64; 4]>, b: Option<[f64; 4]>) -> bool {
 }
 
 fn invalid_output(message: impl Into<String>) -> AppError {
-    AppError::new(
-        "INVALID_OUTPUT",
-        "The edited PDF is not valid",
-        message,
-    )
-    .with_suggestion("The original file was not changed. Try saving again.")
+    AppError::new("INVALID_OUTPUT", "The edited PDF is not valid", message)
+        .with_suggestion("The original file was not changed. Try saving again.")
 }
 
 fn fatal_staged(staged: &Path, message: impl Into<String>) -> AppError {
@@ -863,7 +859,11 @@ mod tests {
             .expect("Pages")
             .as_reference()
             .expect("Pages ref");
-        let kids = match doc.get_dictionary(pages_id).expect("pages dict").get(b"Kids") {
+        let kids = match doc
+            .get_dictionary(pages_id)
+            .expect("pages dict")
+            .get(b"Kids")
+        {
             Ok(Object::Array(a)) => a.clone(),
             other => panic!("Kids must be an array, got {other:?}"),
         };

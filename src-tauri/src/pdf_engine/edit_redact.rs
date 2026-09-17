@@ -66,9 +66,8 @@ pub fn verify_redaction(
     if !dest.is_file() {
         return Err(AppError::invalid_pdf(&dest.to_string_lossy()));
     }
-    let mut doc = Document::load(dest).map_err(|e| {
-        AppError::engine_failed(format!("Could not read the PDF: {e}"))
-    })?;
+    let mut doc = Document::load(dest)
+        .map_err(|e| AppError::engine_failed(format!("Could not read the PDF: {e}")))?;
     let _ = doc.decompress();
 
     let pages = doc.get_pages();
@@ -305,7 +304,11 @@ fn collect_xobject_probes_from_dict(
         let Ok(stream) = doc.get_object(id).and_then(Object::as_stream) else {
             continue;
         };
-        let subtype = stream.dict.get(b"Subtype").ok().and_then(|o| o.as_name().ok());
+        let subtype = stream
+            .dict
+            .get(b"Subtype")
+            .ok()
+            .and_then(|o| o.as_name().ok());
         if subtype != Some(b"Form") && subtype != Some(b"Image") {
             continue;
         }
@@ -691,7 +694,12 @@ fn dict_rect(doc: &Document, dict: &Dictionary, key: &[u8]) -> Option<[f64; 4]> 
     for (i, item) in arr.iter().enumerate() {
         v[i] = num(doc, item)?;
     }
-    Some([v[0].min(v[2]), v[1].min(v[3]), v[0].max(v[2]), v[1].max(v[3])])
+    Some([
+        v[0].min(v[2]),
+        v[1].min(v[3]),
+        v[0].max(v[2]),
+        v[1].max(v[3]),
+    ])
 }
 
 fn resolve_obj<'a>(doc: &'a Document, obj: &'a Object) -> Option<&'a Object> {

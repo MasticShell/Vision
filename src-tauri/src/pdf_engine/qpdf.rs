@@ -28,8 +28,8 @@ pub fn resolve_qpdf_standalone() -> PathBuf {
     // inherit the shell PATH (so Homebrew/MacPorts dirs are missing), so we
     // probe them explicitly before relying on PATH.
     for candidate in [
-        "/usr/bin/qpdf",          // Linux distro packages
-        "/usr/local/bin/qpdf",    // common Linux local
+        "/usr/bin/qpdf",       // Linux distro packages
+        "/usr/local/bin/qpdf", // common Linux local
     ] {
         let p = PathBuf::from(candidate);
         if p.exists() {
@@ -66,8 +66,6 @@ pub fn npages(app: &tauri::AppHandle, input: &str) -> Result<u32, AppError> {
     cmd.arg(input);
     cmd.stdout(Stdio::piped());
     cmd.stderr(Stdio::null());
-
-
 
     let output = cmd.output().map_err(|_| AppError::invalid_pdf(input))?;
     if !output.status.success() && output.status.code() != Some(3) {

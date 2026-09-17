@@ -55,9 +55,8 @@ fn ocr_reject_empty_lang() {
 
 #[test]
 fn ocr_reject_missing_lang() {
-    let err = validate_ocr_lang("deu", INSTALLED).expect_err(
-        "ocr-reject-missing-lang: deu against [eng, osd] must be AppError, not Ok",
-    );
+    let err = validate_ocr_lang("deu", INSTALLED)
+        .expect_err("ocr-reject-missing-lang: deu against [eng, osd] must be AppError, not Ok");
     assert_eq!(
         err.code, "OCR_LANG_MISSING",
         "ocr-reject-missing-lang: deu must be OCR_LANG_MISSING; got {} ({})",

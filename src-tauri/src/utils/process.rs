@@ -82,8 +82,6 @@ pub fn run_qpdf(
     cmd.stdout(Stdio::null());
     cmd.stderr(Stdio::piped());
 
-
-
     let mut child = match cmd.spawn() {
         Ok(c) => c,
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => {

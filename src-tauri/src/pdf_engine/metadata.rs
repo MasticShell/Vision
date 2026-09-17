@@ -33,7 +33,12 @@ pub struct PdfMeta {
 }
 
 const FIELD_KEYS: [&[u8]; 6] = [
-    b"Title", b"Author", b"Subject", b"Keywords", b"Creator", b"Producer",
+    b"Title",
+    b"Author",
+    b"Subject",
+    b"Keywords",
+    b"Creator",
+    b"Producer",
 ];
 
 /// Decode a PDF text string via lopdf: UTF-16BE with a BOM, otherwise
@@ -73,9 +78,8 @@ fn size_gate(input: &str) -> Result<(), AppError> {
 }
 
 fn load_doc(input: &str) -> Result<Document, AppError> {
-    Document::load(input).map_err(|e| {
-        AppError::invalid_pdf(input).with_details(format!("lopdf: {e}"))
-    })
+    Document::load(input)
+        .map_err(|e| AppError::invalid_pdf(input).with_details(format!("lopdf: {e}")))
 }
 
 /// Resolve the trailer's /Info to a Dictionary (either a reference or inline).
@@ -171,7 +175,8 @@ pub fn write_meta(
         d
     };
     let info_id = doc.add_object(Object::Dictionary(info));
-    doc.trailer.set(b"Info".to_vec(), Object::Reference(info_id));
+    doc.trailer
+        .set(b"Info".to_vec(), Object::Reference(info_id));
 
     let work = temp::root(app)?.join("work").join(job_id);
     std::fs::create_dir_all(&work)

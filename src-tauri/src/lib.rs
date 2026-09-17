@@ -32,8 +32,8 @@
 //! Jobs (`commands::jobs`):
 //!   - `cancel_job(registry, job_id: String) -> Result<(), AppError>`
 
-pub mod core;
 mod commands;
+pub mod core;
 mod error;
 mod models;
 mod os_open;

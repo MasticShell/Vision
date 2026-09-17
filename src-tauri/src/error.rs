@@ -74,7 +74,9 @@ impl AppError {
             "Not enough disk space",
             "There may not be enough free space to complete this operation safely.",
         )
-        .with_suggestion("Free up disk space, or choose an output folder on a drive with more room.")
+        .with_suggestion(
+            "Free up disk space, or choose an output folder on a drive with more room.",
+        )
     }
 
     pub fn engine_failed(details: impl Into<String>) -> Self {
@@ -93,7 +95,9 @@ impl AppError {
             "PDF engine not found",
             "The bundled qpdf engine could not be located and qpdf is not on your PATH.",
         )
-        .with_suggestion("Reinstall OffPDF, or install qpdf so it is available on your system PATH.")
+        .with_suggestion(
+            "Reinstall OffPDF, or install qpdf so it is available on your system PATH.",
+        )
     }
 
     pub fn cancelled() -> Self {
