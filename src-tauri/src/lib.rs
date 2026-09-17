@@ -1,4 +1,4 @@
-//! OffPDF Tauri backend.
+//! Vision Tauri backend.
 //!
 //! Local-first, offline-only. The backend NEVER makes a network request.
 //! All PDF processing happens by spawning a local/bundled `qpdf` binary and
@@ -32,6 +32,7 @@
 //! Jobs (`commands::jobs`):
 //!   - `cancel_job(registry, job_id: String) -> Result<(), AppError>`
 
+pub mod core;
 mod commands;
 mod error;
 mod models;
@@ -51,13 +52,10 @@ pub fn run() {
 
     // First plugin: a second launch forwards argv to this process instead of
     // opening another empty workspace. Local IPC only (named pipe / UDS / D-Bus).
-    #[cfg(any(windows, target_os = "linux", target_os = "macos"))]
-    {
-        builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
-            os_open::focus_main_window(app);
-            os_open::enqueue_opened_paths(app, os_open::parse_opened_argv(args));
-        }));
-    }
+    builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+        os_open::focus_main_window(app);
+        os_open::enqueue_opened_paths(app, os_open::parse_opened_argv(args));
+    }));
 
     builder
         // Local file dialogs (open/save). No network.
@@ -133,21 +131,9 @@ pub fn run() {
             Ok(())
         })
         .build(tauri::generate_context!())
-        .expect("error while running the OffPDF application")
-        .run(|app, event| {
-            // Finder delivers Opened only on macOS. Linux/Windows use argv +
-            // single-instance (enqueue_cold_start_argv / plugin callback).
-            match event {
-                #[cfg(target_os = "macos")]
-                tauri::RunEvent::Opened { urls } => {
-                    let paths = urls
-                        .iter()
-                        .filter_map(|url| os_open::parse_opened_token(url.as_str()))
-                        .collect();
-                    os_open::enqueue_opened_paths(app, paths);
-                }
-                _ => {}
-            }
+        .expect("error while running the Vision application")
+        .run(|_app, _event| {
+            // We only support Linux (and optionally Windows), which use argv + single-instance plugin.
         });
 }
 

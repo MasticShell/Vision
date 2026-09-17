@@ -1,0 +1,43 @@
+app-id: com.github.vision.Vision
+runtime: org.freedesktop.Platform
+runtime-version: '23.08'
+sdk: org.freedesktop.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+  - org.freedesktop.Sdk.Extension.node18
+
+command: vision
+finish-args:
+  # Display
+  - --socket=wayland
+  - --socket=fallback-x11
+  # GPU Acceleration for the Webview
+  - --device=dri
+  # File access MUST go through portals, no --filesystem=host allowed for privacy
+  - --talk-name=org.freedesktop.portal.Desktop
+  # Webview might need network for local IPC or localhost dev (remove network for prod if possible, but Tauri often needs it for localhost)
+  # - --share=network 
+
+build-options:
+  append-path: /usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/node18/bin
+
+modules:
+  # 1. qpdf (Structural PDF Engine)
+  - name: qpdf
+    buildsystem: cmake-ninja
+    sources:
+      - type: archive
+        url: https://github.com/qpdf/qpdf/releases/download/v11.9.0/qpdf-11.9.0.tar.gz
+        sha256: 4f18f70af54c0eab419519c72e9dff7836ea47724a2bc15da99f8da1bd6ef259
+
+  # 2. Tesseract OCR (Optional capability)
+  # 3. Vision Core
+  - name: vision
+    buildsystem: simple
+    build-commands:
+      # Placeholder for actual flatpak-cargo-generator and flatpak-node-generator outputs
+      - echo "Building Vision Core..."
+      - install -D target/release/vision /app/bin/vision
+    sources:
+      - type: dir
+        path: .

@@ -44,23 +44,10 @@ impl Drop for Scratch {
     }
 }
 
+/// Poppler was retired in Vision M1. Legacy Poppler rasterisation tests
+/// are skipped until M2 wires redaction to PDFium.
 fn test_pdftoppm() -> Option<PathBuf> {
-    for c in [
-        "/opt/homebrew/bin/pdftoppm",
-        "/usr/local/bin/pdftoppm",
-        "/opt/local/bin/pdftoppm",
-        "/usr/bin/pdftoppm",
-    ] {
-        if Path::new(c).exists() {
-            return Some(PathBuf::from(c));
-        }
-    }
-    std::process::Command::new("pdftoppm")
-        .arg("-v")
-        .output()
-        .ok()
-        .filter(|o| o.status.success() || !o.stderr.is_empty())
-        .map(|_| PathBuf::from("pdftoppm"))
+    None
 }
 
 fn test_qpdf() -> Option<PathBuf> {

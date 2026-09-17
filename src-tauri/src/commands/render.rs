@@ -35,7 +35,7 @@ fn move_file(src: &str, dst: &str) -> Result<(), AppError> {
     Ok(())
 }
 
-/// Whether a local page renderer (poppler `pdftoppm`) is available.
+/// Whether a local page renderer is available.
 #[tauri::command]
 pub async fn renderer_available(app: tauri::AppHandle) -> Result<bool, AppError> {
     tauri::async_runtime::spawn_blocking(move || render::available(&app))

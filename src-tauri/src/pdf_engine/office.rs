@@ -11,8 +11,7 @@ use std::process::{Command, Stdio};
 use std::sync::Arc;
 use tauri::Manager;
 
-#[cfg(windows)]
-use std::os::windows::process::CommandExt;
+
 
 fn soffice_missing() -> AppError {
     AppError::new(
@@ -45,19 +44,8 @@ pub fn resolve_soffice(app: &tauri::AppHandle) -> PathBuf {
         }
     }
 
-    #[cfg(target_os = "macos")]
-    candidates.push(PathBuf::from("/Applications/LibreOffice.app/Contents/MacOS/soffice"));
-    #[cfg(windows)]
-    {
-        for exe in soffice_names() {
-            candidates.push(PathBuf::from(format!(
-                "C:\\Program Files\\LibreOffice\\program\\{exe}"
-            )));
-            candidates.push(PathBuf::from(format!(
-                "C:\\Program Files (x86)\\LibreOffice\\program\\{exe}"
-            )));
-        }
-    }
+
+
     for p in [
         "/opt/homebrew/bin/soffice",
         "/usr/local/bin/soffice",
@@ -80,20 +68,12 @@ pub fn available(app: &tauri::AppHandle) -> bool {
     let mut cmd = Command::new(&exe);
     configure_soffice_command(&mut cmd, &exe);
     cmd.arg("--version").stdout(Stdio::null()).stderr(Stdio::null());
-    #[cfg(windows)]
-    cmd.creation_flags(0x08000000);
+
     matches!(cmd.status(), Ok(status) if status.success())
 }
 
 fn soffice_names() -> &'static [&'static str] {
-    #[cfg(windows)]
-    {
-        &["soffice.com", "soffice.exe"]
-    }
-    #[cfg(not(windows))]
-    {
-        &["soffice"]
-    }
+    &["soffice"]
 }
 
 fn app_roots(app: &tauri::AppHandle) -> Vec<PathBuf> {
@@ -163,12 +143,8 @@ fn encode_url_path(path: &str) -> String {
 }
 
 fn file_url(path: &Path) -> String {
-    let path = encode_url_path(&path.to_string_lossy().replace('\\', "/"));
-    if cfg!(windows) {
-        format!("file:///{path}")
-    } else {
-        format!("file://{path}")
-    }
+    let path = encode_url_path(&path.to_string_lossy());
+    format!("file://{path}")
 }
 
 /// Append LibreOffice's stderr (when non-empty) to a user-facing failure
@@ -214,8 +190,7 @@ fn run_soffice(
     }
     cmd.arg("--outdir").arg(out_dir).arg(input);
     cmd.stdout(Stdio::null()).stderr(Stdio::piped());
-    #[cfg(windows)]
-    cmd.creation_flags(0x08000000);
+
 
     let result = (move || -> Result<String, AppError> {
         // When run inside a job, register the child so cancel_job can kill it.

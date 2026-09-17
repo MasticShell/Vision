@@ -44,15 +44,8 @@ pub fn parse_opened_token(token: &str) -> Option<PathBuf> {
     Some(PathBuf::from(token))
 }
 
-/// Windows/Linux cold start: Open With arrives as argv. No-op on macOS
-/// (Finder delivers `RunEvent::Opened` instead).
 pub fn enqueue_cold_start_argv(app: &AppHandle) {
-    #[cfg(any(windows, target_os = "linux"))]
-    {
-        enqueue_opened_paths(app, parse_opened_argv(std::env::args()));
-    }
-    #[cfg(not(any(windows, target_os = "linux")))]
-    let _ = app;
+    enqueue_opened_paths(app, parse_opened_argv(std::env::args()));
 }
 
 /// Queue paths until the frontend is ready, then emit them. No-op if empty.
@@ -145,22 +138,7 @@ fn strip_localhost_host(after_scheme: &str) -> &str {
     after_scheme
 }
 
-/// `file:///C:/Users/...` → `C:/Users/...` on Windows; unchanged elsewhere.
 fn windows_drive_path(decoded: String) -> String {
-    #[cfg(windows)]
-    {
-        if let Some(trimmed) = decoded.strip_prefix('/') {
-            let bytes = trimmed.as_bytes();
-            if bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && (bytes[1] == b':' || bytes[1] == b'|')
-            {
-                let mut out = trimmed.to_string();
-                if bytes[1] == b'|' {
-                    out.replace_range(1..2, ":");
-                }
-                return out;
-            }
-        }
-    }
     decoded
 }
 

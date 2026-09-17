@@ -1,74 +1,31 @@
-# Contributing
+# Contributing to Vision
 
-Thanks for helping make OffPDF better.
+Thank you for your interest in contributing to Vision! Vision is a premium FOSS Linux desktop application for PDF management, designed with strict architecture, security, and maintenance goals.
 
-OffPDF is intentionally local-first. Contributions should preserve the core
-promise: user files stay on the user's machine.
+## Architecture & Principles
+Before contributing, please read the `ARCHITECTURE.md` file. Vision relies on a capability-based architecture where the Rust backend holds the document state (`VisionDocument`), and engines like qpdf provide specific capabilities. 
+* Do not introduce new engines or heavy dependencies without proposing an Architecture Decision Record (ADR).
+* Follow the Linux-first philosophy: Vision targets Linux and Flatpak environments natively.
 
-## Branch and pull request workflow
-
-`development` is the integration branch for ongoing work. `main` contains the
-latest release-ready code.
-
-1. Fork the repository and create your branch from `development`.
-2. Keep the change focused and add or update tests where practical.
-3. Open the pull request against `McanKul/offpdf:development`, not `main`.
-4. Link the related issue and explain how you verified the change.
-
-For a larger feature or behavior change, open an issue first so the scope can be
-agreed before significant work begins.
-
-## Before opening a pull request
-
-- Keep changes focused and easy to review.
-- Update docs when behavior, setup, packaging, or privacy expectations change.
-- Do not commit build artifacts, downloaded engine binaries, signing
-  certificates, secrets, or local config.
-- Avoid adding network features, telemetry, analytics, or cloud dependencies.
-  If a change needs network access, open an issue first and explain the user
-  benefit and privacy impact.
-- Review licenses before adding PDF engines or bundling third-party binaries.
-
-## Local Setup
+## Setup Development Environment
+To build Vision locally, you need:
+1. Rust toolchain (`rustup`)
+2. Node.js and NPM
+3. `qpdf` installed on your host system (required for PDF structural operations)
+4. `flatpak` and `flatpak-builder` (optional, for packaging)
 
 ```bash
+# Install dependencies
 npm install
-npm run tauri:dev
+
+# Run in dev mode
+npm run dev
 ```
 
-Useful checks:
+## Pull Request Process
+1. **Tests are mandatory**: Any structural PDF modification must have an accompanying test in the Preservation Test Lab (`tests/fixtures/`).
+2. **Format and Lint**: Run `cargo fmt`, `cargo clippy -- -D warnings`, and `npm run lint` before committing.
+3. **Commit Messages**: Write clear, descriptive commit messages.
 
-```bash
-npm run check:versions
-npm run build
-npm test
-cargo check --manifest-path src-tauri/Cargo.toml
-cargo test --manifest-path src-tauri/Cargo.toml
-```
-
-`npm run check:versions` verifies that the release version matches in
-`package.json`, both root version fields in `package-lock.json`,
-`src-tauri/Cargo.toml`, the OffPDF entry in `src-tauri/Cargo.lock`, and
-`src-tauri/tauri.conf.json`. Update these together when changing the version.
-CI runs this check on pull requests and reports mismatched files and values.
-
-## Engineering guidelines
-
-- Prefer existing UI and command patterns.
-- Prefer file paths for core operations. If a preview or editor needs document
-  data in the interface, keep it local and limit it to the smallest page-level
-  payload required.
-- Spawn local tools with argument arrays, not shell strings.
-- Keep temporary files in the app temp area and clean them up after jobs.
-- Make errors actionable for non-technical users.
-
-## Pull request checklist
-
-- The app still works offline.
-- User files are not uploaded or logged.
-- New dependencies have compatible licenses.
-- `npm run build` passes.
-- `npm test` passes.
-- `cargo check --manifest-path src-tauri/Cargo.toml` passes for Rust changes.
-- `cargo test --manifest-path src-tauri/Cargo.toml` passes for Rust changes.
-- Documentation is updated when needed.
+## Dependency Policy
+Vision adheres to a strict dependency policy (see `SECURITY.md`). Do not add new NPM or Cargo dependencies unless the benefit significantly outweighs the maintenance and security costs. All new dependencies require explicit justification.

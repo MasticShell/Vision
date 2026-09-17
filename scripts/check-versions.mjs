@@ -20,7 +20,7 @@ try {
     ["package-lock.json version", npmLock?.version],
     ['package-lock.json packages[""].version', npmLock?.packages?.[""]?.version],
     ["src-tauri/Cargo.toml package.version", cargo.package?.version],
-    ["src-tauri/Cargo.lock offpdf.version", cargoLock.package?.find((entry) => entry.name === "offpdf")?.version],
+    ["src-tauri/Cargo.lock vision.version", cargoLock.package?.find((entry) => entry.name === "vision")?.version],
     ["src-tauri/tauri.conf.json version", tauri?.version],
   ];
   const expected = pkg?.version;

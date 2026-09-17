@@ -65,6 +65,6 @@ fn missing_lang(code: &str) -> AppError {
         format!("The language pack \"{code}\" is not installed for this Tesseract."),
     )
     .with_suggestion(format!(
-        "Install the \"{code}\" pack locally (macOS: brew install tesseract-lang). OffPDF does not download language packs."
+        "Install the \"{code}\" pack locally (e.g. tesseract-ocr-{code}). Vision does not download language packs."
     ))
 }

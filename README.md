@@ -1,218 +1,34 @@
 <p align="center">
-  <img src="./docs/assets/offpdf-mark.svg" width="96" height="96" alt="OffPDF logo">
+  <img src="./docs/assets/offpdf-mark.svg" width="96" height="96" alt="Vision logo">
 </p>
 
-<h1 align="center">OffPDF</h1>
+<h1 align="center">Vision</h1>
 
 <p align="center">
-  <strong>Private PDF tools that run entirely on your computer.</strong><br>
-  23 tools · No uploads · No account · No telemetry · Works offline
+  <strong>A premium, modern, and highly responsive Linux desktop application for PDF management.</strong><br>
+  Local-first · Privacy-centric · Architecture-driven
 </p>
 
-<p align="center">
-  <a href="https://github.com/McanKul/offpdf/releases/latest"><img src="https://img.shields.io/github/v/release/McanKul/offpdf?label=release" alt="Latest release"></a>
-  <a href="https://github.com/McanKul/offpdf/actions/workflows/ci.yml"><img src="https://github.com/McanKul/offpdf/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status"></a>
-  <a href="./LICENSE"><img src="https://img.shields.io/github/license/McanKul/offpdf" alt="MIT license"></a>
-</p>
+## Vision Philosophy
+Vision is a FOSS Linux application born from the foundations of OffPDF, redesigned from the ground up for strict architectural correctness, memory efficiency, and PDF preservation.
 
-<p align="center">
-  <strong><a href="#downloads">View downloads</a></strong>
-  · <a href="https://offpdf.com">Visit offpdf.com</a>
-  · <a href="https://github.com/McanKul/offpdf">Star OffPDF on GitHub</a>
-  · <a href="./CONTRIBUTING.md">Contribute</a>
-</p>
+**Your files never leave your computer.** Vision processes documents locally, coordinating powerful engines like `qpdf` through a robust, memory-safe Rust backend.
 
-<p align="center">
-  <img src="./docs/assets/offpdf-home.png" width="1060" alt="OffPDF desktop app showing its local PDF tools">
-</p>
+## Development & Architecture
+Vision is currently in active development (Milestone 1). Please refer to the following documents for our engineering principles:
+* [ARCHITECTURE.md](./ARCHITECTURE.md) - Learn about our Capability-based architecture, the VisionDocument model, and engine isolation.
+* [CONTRIBUTING.md](./CONTRIBUTING.md) - Guidelines for contributing, PR processes, and development setup.
+* [SECURITY.md](./SECURITY.md) - Our threat model and dependency policy.
 
-> **Your files never leave your computer.** OffPDF processes documents locally
-> and always writes the result to a new file, leaving the original untouched.
-
-OffPDF is a free, MIT-licensed desktop toolbox for everyday PDF work. It uses
-local engines such as qpdf, Poppler, Tesseract, and LibreOffice, with no cloud
-service in the middle.
-
-## Why OffPDF?
-
-- **Private by design.** No uploads, accounts, analytics, telemetry, or remote API.
-- **Useful offline.** Install it once and keep working without a connection.
-- **One focused toolbox.** Organize, convert, compress, OCR, protect, and repair PDFs.
-- **Open and inspectable.** The app and its privacy model are available here under MIT.
-
-## 23 PDF tools
-
-| Organize | Convert | Optimize & secure |
-| --- | --- | --- |
-| Merge PDFs | Office / HTML to PDF | Compress PDF |
-| Split PDF | PDF to Office | Protect PDF |
-| Organize pages | PDF to images | Unlock PDF |
-| Page numbers | OCR (make searchable) | Repair PDF |
-| Watermark | PDF/A (archive) | Edit metadata |
-| Crop pages | PDF to text | |
-| Stamp / Sign | | |
-| Edit PDF | | |
-| Poster / tile print | | |
-| N-up / Booklet | | |
-| Compare PDFs | | |
-| Remove blank pages | | |
-
-### Edit PDF capabilities
-
-The Edit PDF workspace adds text, images, shapes, links, and freehand drawing as
-new content. It can also create PDF notes, highlights, underlines, strikeouts,
-and ink annotations while preserving existing annotations.
-
-For interactive PDFs, OffPDF can fill existing AcroForm text fields (including
-multiline fields), checkboxes, radio buttons, combo boxes, and list boxes. Form
-fields stay interactive by default.
-
-The two flattening options have different scopes:
-
-- **Flatten form fields** turns supported form widgets into page content while
-  leaving other annotations interactive.
-- **Flatten annotations** turns all remaining annotations into non-interactive
-  page content. When a PDF contains form fields, OffPDF requires form fields to
-  be flattened as part of this operation.
-
-Current limits: XFA forms are not supported; only the first PDF's AcroForm can
-be filled when several files are combined; and Edit PDF does not rewrite text
-or images already embedded in a source page. New text and images are added as
-overlays instead.
-
-## Downloads
-
-| Platform | Package | Status |
-| --- | --- | --- |
-| Windows x64 | [Download from the latest release](https://github.com/McanKul/offpdf/releases/latest) | Available on GitHub Releases; currently unsigned while Authenticode signing is completed |
-| macOS 11+ · Apple Silicon | [Download from the latest release](https://github.com/McanKul/offpdf/releases/latest) | Signed and notarized |
-| Intel Mac / Linux | [Build from source](#development) | No published package yet |
-
-The Windows installer is large because it includes the local engines needed to
-keep its core workflows offline. The macOS build bundles qpdf, Poppler, and
-Tesseract; LibreOffice is optional and only needed for Office and PDF/A tools.
-Until Authenticode signing is complete, the Windows package is distributed only
-through GitHub Releases and is not linked from offpdf.com.
-
-All published binaries are available on the
-[Releases page](https://github.com/McanKul/offpdf/releases).
-
-See the [code signing policy](./CODE_SIGNING_POLICY.md) for how official release
-artifacts are built, approved, and verified.
-
-## Open With (desktop)
-
-A packaged build registers OffPDF as an **Open With** handler for the same types
-the in-app picker already accepts (PDF, images including HEIC/HEIF, and Office).
-It is not the silent default PDF app (`bundle.fileAssociations` uses
-`rank: Alternate`). Choose OffPDF from Finder, Explorer, or your Linux file
-manager.
-
-Opened files go into the existing workspace. No merge, compress, convert, or
-redact job starts until you pick a tool. If OffPDF is already running, the
-existing window is focused and the files are added there.
-
-Association metadata lives in `src-tauri/tauri.conf.json`. Full Finder/Explorer
-clicks need a packaged build (`npm run tauri:build`) or a local `tauri:dev`
-session plus a manual OS association.
-
-## Privacy model
-
-- Documents are processed by local binaries on your machine.
-- Preview, search, and editing may pass locally generated page data, thumbnails,
-  or extracted text to the bundled interface. This data stays inside the app.
-- There is no account system, cloud sync, analytics, telemetry, or remote API.
-- The production app uses Tauri's local custom protocol and a restrictive CSP.
-- Auto-update is not enabled.
-
-See [PRIVACY.md](./PRIVACY.md) for the plain-language privacy statement.
-
-## Development
-
-### Prerequisites
-
+## Prerequisites
 - Node.js 18+
 - Rust via `rustup`
-- [Tauri v2 platform prerequisites](https://v2.tauri.app/start/prerequisites/)
-- `qpdf` for core PDF operations
-- Optional: Poppler, Tesseract, and LibreOffice for the tools listed below
-
-```bash
-# macOS
-brew install qpdf poppler tesseract
-brew install --cask libreoffice
-
-# Debian / Ubuntu
-sudo apt install qpdf poppler-utils tesseract-ocr libreoffice
-```
-
-Install dependencies and run the desktop app:
+- `qpdf` (installed locally)
 
 ```bash
 npm install
 npm run tauri:dev
 ```
 
-Run the checks used by CI:
-
-```bash
-npm run build
-npm test
-```
-
-Create a desktop bundle:
-
-```bash
-npm run tauri:build
-```
-
-### Local engines
-
-| Engine | Used for |
-| --- | --- |
-| `qpdf` | Merge, split, organize, encrypt, decrypt, repair, and lossless optimization |
-| Poppler (`pdftoppm`, `pdftotext`) | Previews, image export, comparison, text export, and lossy compression |
-| Tesseract | OCR and searchable PDFs |
-| LibreOffice | Office conversion and PDF/A export |
-
-<details>
-<summary><strong>Project structure</strong></summary>
-
-```text
-.
-|-- src/                 # React + TypeScript frontend
-|   |-- components/      # shared UI, PDF controls, layout, job status
-|   |-- features/        # tool-specific screens
-|   |-- lib/             # tool registry, validation, Tauri commands
-|   |-- routes/          # home, settings, about
-|   |-- state/           # Zustand stores
-|   `-- styles/
-|-- src-tauri/           # Rust backend and Tauri configuration
-|   |-- src/
-|   |   |-- commands/    # command handlers
-|   |   |-- pdf_engine/  # engine resolution and PDF operations
-|   |   `-- utils/       # disk, temp, and process helpers
-|   `-- tauri.conf.json
-`-- public/pdfjs/        # bundled pdf.js assets
-```
-
-</details>
-
-## Contributing
-
-Bug reports, feature ideas, documentation improvements, translations, and code
-contributions are welcome. Read [CONTRIBUTING.md](./CONTRIBUTING.md) before
-opening a larger change, and check the
-[open issues](https://github.com/McanKul/offpdf/issues) for current work.
-
-Please report security-sensitive issues privately as described in
-[SECURITY.md](./SECURITY.md).
-
-## Project status
-
-OffPDF is under active development. See the [roadmap](./ROADMAP.md) for current
-priorities and known platform limitations.
-
 ## License
-
 [MIT](./LICENSE)

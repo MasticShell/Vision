@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "OffPDF",
+  "productName": "Vision",
   "version": "0.3.2",
-  "identifier": "app.offpdf.desktop",
+  "identifier": "com.github.vision.Vision",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",
@@ -13,7 +13,7 @@
     "withGlobalTauri": false,
     "windows": [
       {
-        "title": "OffPDF - Local only - No upload",
+        "title": "Vision - Local only - No upload",
         "width": 1180,
         "height": 800,
         "minWidth": 940,
@@ -32,7 +32,7 @@
     "targets": "all",
     "category": "Productivity",
     "shortDescription": "Free, offline-first PDF utility. Your files never leave your computer.",
-    "longDescription": "OffPDF organizes, converts, compresses, protects, unlocks and repairs PDF files entirely on your computer. No upload, no cloud, no account, works offline.",
+    "longDescription": "Vision organizes, converts, compresses, protects, unlocks and repairs PDF files entirely on your computer. No upload, no cloud, no account, works offline.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

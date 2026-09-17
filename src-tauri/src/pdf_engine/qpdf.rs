@@ -7,11 +7,7 @@ use tauri::Manager;
 
 /// Platform binary name for qpdf.
 fn exe_name() -> &'static str {
-    if cfg!(windows) {
-        "qpdf.exe"
-    } else {
-        "qpdf"
-    }
+    "qpdf"
 }
 
 /// Locate qpdf without a Tauri handle (Edit PDF `--check`, tests).
@@ -31,18 +27,13 @@ pub fn resolve_qpdf_standalone() -> PathBuf {
     // Common absolute install locations. A Finder-launched .app does NOT
     // inherit the shell PATH (so Homebrew/MacPorts dirs are missing), so we
     // probe them explicitly before relying on PATH.
-    #[cfg(not(windows))]
-    {
-        for candidate in [
-            "/opt/homebrew/bin/qpdf", // macOS Homebrew (Apple Silicon)
-            "/usr/local/bin/qpdf",    // macOS Homebrew (Intel) / common Linux
-            "/opt/local/bin/qpdf",    // macOS MacPorts
-            "/usr/bin/qpdf",          // Linux distro packages
-        ] {
-            let p = PathBuf::from(candidate);
-            if p.exists() {
-                return p;
-            }
+    for candidate in [
+        "/usr/bin/qpdf",          // Linux distro packages
+        "/usr/local/bin/qpdf",    // common Linux local
+    ] {
+        let p = PathBuf::from(candidate);
+        if p.exists() {
+            return p;
         }
     }
 
@@ -76,11 +67,7 @@ pub fn npages(app: &tauri::AppHandle, input: &str) -> Result<u32, AppError> {
     cmd.stdout(Stdio::piped());
     cmd.stderr(Stdio::null());
 
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        cmd.creation_flags(0x08000000);
-    }
+
 
     let output = cmd.output().map_err(|_| AppError::invalid_pdf(input))?;
     if !output.status.success() && output.status.code() != Some(3) {
@@ -92,3 +79,7 @@ pub fn npages(app: &tauri::AppHandle, input: &str) -> Result<u32, AppError> {
         .parse::<u32>()
         .map_err(|_| AppError::invalid_pdf(input))
 }
+
+#[cfg(test)]
+#[path = "qpdf_tests.rs"]
+mod tests;

@@ -3,8 +3,8 @@
 //!
 //! Only paths cross IPC. No bytes, no network.
 //!
-//! macOS note: synchronous (`fn`) Tauri commands run on the MAIN thread. A
-//! native file dialog (NSOpenPanel) also needs the main thread's run loop, so
+//! Note: synchronous (`fn`) Tauri commands run on the MAIN thread. A
+//! native file dialog also needs the main thread's run loop, so
 //! calling `blocking_pick_*` from a sync command deadlocks the UI. Anything that
 //! shows a dialog or does noticeable I/O is therefore an `async` command whose
 //! work runs in `spawn_blocking` (off the main thread, leaving the run loop free

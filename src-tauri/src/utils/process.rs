@@ -82,12 +82,7 @@ pub fn run_qpdf(
     cmd.stdout(Stdio::null());
     cmd.stderr(Stdio::piped());
 
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        // CREATE_NO_WINDOW: avoid flashing a console window.
-        cmd.creation_flags(0x08000000);
-    }
+
 
     let mut child = match cmd.spawn() {
         Ok(c) => c,

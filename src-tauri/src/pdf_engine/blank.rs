@@ -1,31 +1,16 @@
-//! Blank-page detection. Each page is rendered to a tiny grayscale PNG with
-//! poppler's `pdftoppm` (-gray -r 40 — a Letter page becomes ~340×440 px, so a
-//! whole scan batch stays cheap), then analysed with the `image` crate:
+//! Blank-page detection.
 //!
-//! * a page is blank when the fraction of "dark" pixels (luma < 240) is below
-//!   the sensitivity threshold — real content (text, lines, stamps) always
-//!   produces a visible dark fraction, while paper texture does not;
-//! * a page of near-uniform light gray (a scanner reading an empty sheet often
-//!   yields flat noise around ~200-230 instead of white) is also treated as
-//!   blank via the standard deviation of the luma histogram.
+//! M1 status: the rasterisation step (pdftoppm) has been stubbed out.
+//! The detection entrypoint returns `CapabilityUnavailable`. The pixel-analysis
+//! logic (`luma_stats`, `is_blank`, `threshold_for`) is preserved — it is
+//! architecture-independent and will be wired to PDFium in M2.
 //!
 //! Detection only *reports* pages — removal is done by the existing
 //! delete/assemble commands, so there is no new write path here.
 
 use crate::error::AppError;
-use crate::models::{JobHandle, JobUpdate};
-use crate::pdf_engine::{qpdf, render};
-use crate::utils::temp;
-use std::process::{Command, Stdio};
+use crate::models::JobHandle;
 use std::sync::Arc;
-use tauri::Emitter;
-
-#[cfg(windows)]
-use std::os::windows::process::CommandExt;
-
-/// Render resolution for detection. 40 DPI is enough: a single word on a page
-/// still covers dozens of pixels, while pages render in a few milliseconds.
-const DETECT_DPI: u32 = 40;
 
 /// Pixels with a luma below this count as "content" (ink).
 const DARK_LUMA: u8 = 240;
@@ -78,88 +63,25 @@ pub(crate) fn is_blank(dark_fraction: f64, mean: f64, stddev: f64, threshold: f6
     dark_fraction < threshold || (stddev < UNIFORM_STDDEV && mean > UNIFORM_MIN_MEAN)
 }
 
-/// Detect blank pages of `input` (1-based page numbers). `sensitivity` is
-/// "strict" | "normal" | "aggressive". Cancellable between pages via the
-/// `JobHandle`, like `ocr::ocr`.
+/// Detect blank pages of `input` (1-based page numbers).
+///
+/// **M1 stub**: The rasterisation step previously used Poppler's `pdftoppm`.
+/// Returns `CapabilityUnavailable` unconditionally. The pixel-analysis helpers
+/// (`luma_stats`, `is_blank`) remain and will be wired to PDFium in M2.
 pub fn detect_blank_pages(
-    app: &tauri::AppHandle,
-    handle: &Arc<JobHandle>,
-    job_id: &str,
-    input: &str,
-    sensitivity: &str,
+    _app: &tauri::AppHandle,
+    _handle: &Arc<JobHandle>,
+    _job_id: &str,
+    _input: &str,
+    _sensitivity: &str,
 ) -> Result<Vec<u32>, AppError> {
-    super::require_input(input)?;
-    let threshold = threshold_for(sensitivity);
-    let n = qpdf::npages(app, input)?;
-    if n == 0 {
-        return Ok(vec![]);
-    }
-
-    let exe = render::resolve_pdftoppm(app);
-    let work = temp::root(app)?
-        .join("work")
-        .join(job_id)
-        .join(format!("blank-{}", render::fnv1a_hex(input)));
-    std::fs::create_dir_all(&work)
-        .map_err(|e| AppError::io("Could not create a temp directory.", e))?;
-
-    let result = (|| -> Result<Vec<u32>, AppError> {
-        let mut blanks: Vec<u32> = Vec::new();
-        for page in 1..=n {
-            if handle.is_cancelled() {
-                return Err(AppError::cancelled());
-            }
-            let _ = app.emit(
-                "job:update",
-                JobUpdate::new(
-                    job_id,
-                    "running",
-                    &format!("Scanning page {page} of {n}"),
-                )
-                .percent((page - 1) as f32 / n as f32 * 100.0),
-            );
-
-            // Tiny grayscale render of just this page.
-            let prefix = work.join(format!("p{page}"));
-            let mut cmd = Command::new(&exe);
-            render::configure_poppler_command(&mut cmd, &exe);
-            cmd.args([
-                "-png",
-                "-gray",
-                "-r",
-                &DETECT_DPI.to_string(),
-                "-f",
-                &page.to_string(),
-                "-l",
-                &page.to_string(),
-                "-singlefile",
-                input,
-                &prefix.to_string_lossy(),
-            ]);
-            cmd.stdout(Stdio::null()).stderr(Stdio::piped());
-            #[cfg(windows)]
-            cmd.creation_flags(0x08000000);
-
-            let (_status, stderr) = crate::utils::process::run_tracked(handle, cmd)?;
-            let png = prefix.with_extension("png");
-            if !png.exists() {
-                return Err(AppError::engine_failed(stderr.trim().to_string()));
-            }
-
-            let img = image::open(&png)
-                .map_err(|e| AppError::engine_failed(format!("read page {page}: {e}")))?
-                .to_luma8();
-            let (dark_fraction, mean, stddev) = luma_stats(img.as_raw());
-            if is_blank(dark_fraction, mean, stddev, threshold) {
-                blanks.push(page);
-            }
-            let _ = std::fs::remove_file(&png);
-        }
-        Ok(blanks)
-    })();
-
-    let _ = std::fs::remove_dir_all(&work);
-    result
+    Err(AppError::new(
+        "CapabilityUnavailable",
+        "Blank page detection temporarily unavailable",
+        "Blank page detection has been disabled during the M1 architecture migration. \
+         The pipeline that previously relied on Poppler (pdftoppm) for rasterisation \
+         has been removed. A PDFium-based replacement is planned for M2.",
+    ))
 }
 
 #[cfg(test)]

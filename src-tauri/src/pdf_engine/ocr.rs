@@ -1,28 +1,23 @@
-//! OCR: make a scanned PDF searchable. Each page is rendered to an image
-//! (poppler), Tesseract produces a one-page searchable PDF (image + invisible
-//! text layer), and the pages are merged back with qpdf. All local, no network.
+//! OCR: make a scanned PDF searchable.
+//!
+//! M1 status: the Poppler rasterisation step (pdftoppm) has been stubbed out
+//! and returns `CapabilityUnavailable`. Tesseract availability probing and
+//! language listing still work — only `ocr()` itself is gated. The full
+//! pipeline (rasterise with PDFium → Tesseract → merge with qpdf) is
+//! scheduled for M2.
 
 use crate::error::AppError;
-use crate::models::{JobHandle, JobUpdate, PagePick};
+use crate::models::{JobHandle, PagePick};
 use crate::pdf_engine::ocr_langs;
-use crate::pdf_engine::render;
-use crate::utils::process::run_qpdf;
-use crate::utils::temp;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::Arc;
-use tauri::Emitter;
 use tauri::Manager;
 
-#[cfg(windows)]
-use std::os::windows::process::CommandExt;
+
 
 fn tesseract_exe() -> &'static str {
-    if cfg!(windows) {
-        "tesseract.exe"
-    } else {
-        "tesseract"
-    }
+    "tesseract"
 }
 
 /// Locate the Tesseract binary.
@@ -33,11 +28,9 @@ pub fn resolve_tesseract(app: &tauri::AppHandle) -> PathBuf {
         return found;
     }
 
-    #[cfg(not(windows))]
     for c in [
-        "/opt/homebrew/bin/tesseract",
-        "/usr/local/bin/tesseract",
         "/usr/bin/tesseract",
+        "/usr/local/bin/tesseract",
     ] {
         let p = PathBuf::from(c);
         if p.exists() {
@@ -47,17 +40,14 @@ pub fn resolve_tesseract(app: &tauri::AppHandle) -> PathBuf {
     PathBuf::from(exe)
 }
 
-/// Whether Tesseract is available.
-pub fn available(app: &tauri::AppHandle) -> bool {
-    let exe = resolve_tesseract(app);
-    let mut cmd = Command::new(&exe);
-    configure_tesseract_command(&mut cmd, &exe);
-    cmd.arg("--version")
-        .stdout(Stdio::null())
-        .stderr(Stdio::null());
-    #[cfg(windows)]
-    cmd.creation_flags(0x08000000);
-    matches!(cmd.status(), Ok(status) if status.success())
+/// Whether the OCR pipeline is available.
+///
+/// In M1, OCR capability is explicitly unavailable (`false`) because Poppler
+/// rasterisation was removed and PDFium integration is scheduled for M2.
+/// Even if Tesseract is installed on the host, the complete OCR pipeline
+/// cannot function without a page rasteriser.
+pub fn available(_app: &tauri::AppHandle) -> bool {
+    false
 }
 
 fn app_roots(app: &tauri::AppHandle) -> Vec<PathBuf> {
@@ -130,7 +120,7 @@ fn missing() -> AppError {
         "Tesseract not found",
         "OCR needs Tesseract, which couldn't be located.",
     )
-    .with_suggestion("Install it — on macOS: brew install tesseract tesseract-lang.")
+    .with_suggestion("Install Tesseract — e.g. sudo apt install tesseract-ocr.")
 }
 
 fn langs_failed(details: impl Into<String>) -> AppError {
@@ -141,7 +131,7 @@ fn langs_failed(details: impl Into<String>) -> AppError {
     )
     .with_details(details.into())
     .with_suggestion(
-        "Install Tesseract language packs locally (macOS: brew install tesseract-lang). OffPDF does not download them.",
+        "Install Tesseract language packs locally (e.g. sudo apt install tesseract-ocr-eng). Vision does not download them.",
     )
 }
 
@@ -155,8 +145,6 @@ pub fn list_langs(app: &tauri::AppHandle) -> Result<Vec<String>, AppError> {
     }
     cmd.arg("--list-langs");
     cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
-    #[cfg(windows)]
-    cmd.creation_flags(0x08000000);
 
     let out = cmd.output().map_err(|e| {
         if e.kind() == std::io::ErrorKind::NotFound {
@@ -181,115 +169,26 @@ pub fn list_langs(app: &tauri::AppHandle) -> Result<Vec<String>, AppError> {
     Ok(langs)
 }
 
-/// OCR every page of the combined document into one searchable PDF. `lang` is a
-/// Tesseract language code (e.g. "eng", "tur", or "eng+tur").
+/// OCR every page of the combined document into one searchable PDF.
+///
+/// **M1 stub**: The rasterisation step previously used Poppler's `pdftoppm`.
+/// That dependency has been removed. This function now unconditionally returns
+/// `CapabilityUnavailable`. The full pipeline (PDFium rasterise → Tesseract
+/// → qpdf merge) is planned for M2.
 pub fn ocr(
-    app: &tauri::AppHandle,
-    handle: &Arc<JobHandle>,
-    job_id: &str,
-    picks: &[PagePick],
-    output: &str,
-    lang: &str,
+    _app: &tauri::AppHandle,
+    _handle: &Arc<JobHandle>,
+    _job_id: &str,
+    _picks: &[PagePick],
+    _output: &str,
+    _lang: &str,
 ) -> Result<Vec<String>, AppError> {
-    if picks.is_empty() {
-        return Err(AppError::new("NO_PAGES", "No pages", "Add a PDF first."));
-    }
-    let installed = list_langs(app)?;
-    let installed_refs: Vec<&str> = installed.iter().map(String::as_str).collect();
-    ocr_langs::validate_ocr_lang(lang, &installed_refs)?;
-    super::ensure_output_dir(output)?;
-
-    let pdftoppm = render::resolve_pdftoppm(app);
-    let tess = resolve_tesseract(app);
-    let work = temp::root(app)?.join("work").join(job_id);
-    std::fs::create_dir_all(&work)
-        .map_err(|e| AppError::io("Could not create a temp directory.", e))?;
-
-    let result = (|| -> Result<Vec<String>, AppError> {
-        let n = picks.len();
-        let mut page_pdfs: Vec<String> = Vec::with_capacity(n);
-
-        for (i, pk) in picks.iter().enumerate() {
-            if handle.is_cancelled() {
-                return Err(AppError::cancelled());
-            }
-            let _ = app.emit(
-                "job:update",
-                JobUpdate::new(
-                    job_id,
-                    "running",
-                    &format!("Reading text — page {} of {n}", i + 1),
-                )
-                .percent(i as f32 / n as f32 * 100.0),
-            );
-
-            // 1. render page → PNG at 300 DPI (good OCR accuracy)
-            let img_prefix = work.join(format!("p{i}"));
-            let mut r = Command::new(&pdftoppm);
-            render::configure_poppler_command(&mut r, &pdftoppm);
-            r.args([
-                "-png",
-                "-r",
-                "300",
-                "-f",
-                &pk.page.to_string(),
-                "-l",
-                &pk.page.to_string(),
-                "-singlefile",
-                &pk.path,
-                &img_prefix.to_string_lossy(),
-            ]);
-            r.stdout(Stdio::null()).stderr(Stdio::piped());
-            #[cfg(windows)]
-            r.creation_flags(0x08000000);
-            let (_rs, rerr) = crate::utils::process::run_tracked(handle, r)?;
-            let png = img_prefix.with_extension("png");
-            if !png.exists() {
-                return Err(AppError::engine_failed(rerr.trim().to_string()));
-            }
-
-            // 2. tesseract PNG → searchable one-page PDF
-            let out_base = work.join(format!("o{i}"));
-            let mut t = Command::new(&tess);
-            configure_tesseract_command(&mut t, &tess);
-            t.arg(png.to_string_lossy().to_string())
-                .arg(out_base.to_string_lossy().to_string());
-            if let Some(tessdata) = tessdata_dir_for_tool(&tess) {
-                t.arg("--tessdata-dir").arg(tessdata);
-            }
-            t.arg("-l").arg(lang).arg("pdf");
-            t.stdout(Stdio::null()).stderr(Stdio::piped());
-            #[cfg(windows)]
-            t.creation_flags(0x08000000);
-            let (_ts, terr) = match crate::utils::process::run_tracked(handle, t) {
-                Ok(v) => v,
-                Err(e) if e.code == "ENGINE_MISSING" => return Err(missing()),
-                Err(e) => return Err(e),
-            };
-            let page_pdf = out_base.with_extension("pdf");
-            if !page_pdf.exists() {
-                return Err(AppError::engine_failed(terr.trim().to_string()));
-            }
-            page_pdfs.push(page_pdf.to_string_lossy().to_string());
-            let _ = std::fs::remove_file(&png);
-        }
-
-        // 3. merge the per-page searchable PDFs
-        let _ = app.emit(
-            "job:update",
-            JobUpdate::new(job_id, "running", "Merging pages").percent(99.0),
-        );
-        let mut args: Vec<String> = vec!["--empty".into(), "--pages".into()];
-        for p in &page_pdfs {
-            args.push(p.clone());
-            args.push("1".into());
-        }
-        args.push("--".into());
-        args.push(output.to_string());
-        run_qpdf(app, handle, job_id, &args, "Merging pages", None)?;
-        Ok(vec![output.to_string()])
-    })();
-
-    let _ = std::fs::remove_dir_all(&work);
-    result
+    Err(AppError::new(
+        "CapabilityUnavailable",
+        "OCR temporarily unavailable",
+        "OCR has been disabled during the M1 architecture migration. \
+         The pipeline that previously relied on Poppler (pdftoppm) for \
+         rasterisation has been removed. A PDFium-based replacement is \
+         planned for M2.",
+    ))
 }
