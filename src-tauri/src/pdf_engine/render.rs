@@ -117,12 +117,3 @@ pub(crate) fn base64(data: &[u8]) -> String {
     }
     s
 }
-
-pub(crate) fn fnv1a_hex(s: &str) -> String {
-    let mut hash: u64 = 0xcbf29ce484222325;
-    for byte in s.as_bytes() {
-        hash ^= *byte as u64;
-        hash = hash.wrapping_mul(0x100000001b3);
-    }
-    format!("{hash:016x}")
-}

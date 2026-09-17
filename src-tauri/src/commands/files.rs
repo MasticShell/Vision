@@ -99,8 +99,8 @@ pub async fn preview_image(path: String) -> Result<ImagePreview, AppError> {
 fn preview_image_sync(path: &str) -> Result<ImagePreview, AppError> {
     let inspected = crate::pdf_engine::edit_image::inspect_image(path)?;
     let img = crate::pdf_engine::edit_image::decode_bounded(&inspected.bytes)?;
-    let w0 = img.width().max(1);
-    let h0 = img.height().max(1);
+    let w0 = inspected.width.max(1);
+    let h0 = inspected.height.max(1);
     let max_edge = 800u32;
     let img = if img.width().max(img.height()) > max_edge {
         img.thumbnail(max_edge, max_edge)

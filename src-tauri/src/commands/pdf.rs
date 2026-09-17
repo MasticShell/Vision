@@ -211,6 +211,7 @@ pub async fn crop_pdf(
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn edit_pdf_overlays(
     app: tauri::AppHandle,
     registry: tauri::State<'_, JobRegistry>,
@@ -549,6 +550,7 @@ pub async fn reorder_pages(
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn compress_pdf(
     app: tauri::AppHandle,
     registry: tauri::State<'_, JobRegistry>,

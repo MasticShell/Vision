@@ -18,6 +18,7 @@ use std::sync::Arc;
 /// **M1 stub**: This function previously used Poppler's `pdftoppm` to rasterise
 /// each page. That dependency has been removed. Returns `CapabilityUnavailable`
 /// unconditionally. A PDFium-based replacement is planned for M2.
+#[allow(clippy::too_many_arguments)]
 pub fn compress(
     _app: &tauri::AppHandle,
     _handle: &Arc<JobHandle>,
@@ -146,7 +147,7 @@ pub fn image_to_pdf(app: &tauri::AppHandle, input: &str) -> Result<String, AppEr
 fn image_to_pdf_in_dir(in_path: &Path, dir: &Path) -> Result<PathBuf, AppError> {
     use std::io::BufWriter;
 
-    std::fs::create_dir_all(&dir)
+    std::fs::create_dir_all(dir)
         .map_err(|e| AppError::io("Could not create a temp directory.", e))?;
 
     let stem = in_path
@@ -397,8 +398,8 @@ fn write_image_pdf(output: &str, pages: &[PageImage]) -> Result<(), AppError> {
     let xref_pos = buf.len();
     buf.extend_from_slice(format!("xref\n0 {}\n", total_objs + 1).as_bytes());
     buf.extend_from_slice(b"0000000000 65535 f \n");
-    for num in 1..=total_objs {
-        buf.extend_from_slice(format!("{:010} 00000 n \n", offsets[num]).as_bytes());
+    for offset in &offsets[1..=total_objs] {
+        buf.extend_from_slice(format!("{:010} 00000 n \n", offset).as_bytes());
     }
     buf.extend_from_slice(
         format!(

@@ -13,17 +13,21 @@ use crate::models::JobHandle;
 use std::sync::Arc;
 
 /// Pixels with a luma below this count as "content" (ink).
+#[cfg(test)]
 const DARK_LUMA: u8 = 240;
 
 /// A near-uniform page (flat scanner gray) has a luma stddev below this.
+#[cfg(test)]
 const UNIFORM_STDDEV: f64 = 4.0;
 
 /// The uniform-page rule only applies to *light* pages — a solid dark page
 /// (e.g. a full-bleed photo or a black cover) is uniform but not blank.
+#[cfg(test)]
 const UNIFORM_MIN_MEAN: f64 = 160.0;
 
 /// Map a sensitivity preset to the maximum dark-pixel fraction of a blank page.
-/// Unknown values fall back to "normal".
+/// Unknown values fall back to "normal". Preserved for M2 PDFium wiring; tested in `tests`.
+#[cfg(test)]
 pub(crate) fn threshold_for(sensitivity: &str) -> f64 {
     match sensitivity {
         "strict" => 0.0005,   // 0.05 % — only truly empty pages
@@ -33,6 +37,8 @@ pub(crate) fn threshold_for(sensitivity: &str) -> f64 {
 }
 
 /// Dark-pixel fraction, mean and standard deviation of grayscale pixels.
+/// Preserved for M2 PDFium wiring; tested in `tests`.
+#[cfg(test)]
 pub(crate) fn luma_stats(pixels: &[u8]) -> (f64, f64, f64) {
     if pixels.is_empty() {
         return (0.0, 255.0, 0.0);
@@ -59,6 +65,8 @@ pub(crate) fn luma_stats(pixels: &[u8]) -> (f64, f64, f64) {
 }
 
 /// Blank-page decision from the page's luma statistics.
+/// Preserved for M2 PDFium wiring; tested in `tests`.
+#[cfg(test)]
 pub(crate) fn is_blank(dark_fraction: f64, mean: f64, stddev: f64, threshold: f64) -> bool {
     dark_fraction < threshold || (stddev < UNIFORM_STDDEV && mean > UNIFORM_MIN_MEAN)
 }

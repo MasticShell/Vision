@@ -76,15 +76,12 @@ fn find_bundled_tesseract(app: &tauri::AppHandle, exe: &str) -> Option<PathBuf> 
 
 fn tessdata_dir_for_tool(exe: &Path) -> Option<PathBuf> {
     let bin_dir = exe.parent()?;
-    for candidate in [
+    [
         bin_dir.join("tessdata"),
         bin_dir.join("..").join("tessdata"),
-    ] {
-        if candidate.exists() {
-            return Some(candidate);
-        }
-    }
-    None
+    ]
+    .into_iter()
+    .find(|candidate| candidate.exists())
 }
 
 fn configure_tesseract_command(cmd: &mut Command, exe: &Path) {

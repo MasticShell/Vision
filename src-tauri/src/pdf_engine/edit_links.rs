@@ -150,6 +150,7 @@ pub fn list_link_annots(path: &Path) -> Result<Vec<ListedLink>, AppError> {
 ///
 /// Copy through every non-Link annot and every unsupported Link. Reject
 /// writing a non-allowlisted URI with an actionable [`AppError`].
+#[cfg(test)]
 pub fn apply_link_annots(staged: &Path, links: &[SessionLink]) -> Result<(), AppError> {
     apply_link_annots_impl(staged, links, None)
 }
@@ -181,6 +182,7 @@ pub fn dest_has_supported_links(staged: &Path) -> Result<bool, AppError> {
 ///
 /// Incomplete hydrate + empty session must not wipe dest. Complete empty
 /// still deletes (L7).
+#[cfg(test)]
 pub fn should_rewrite_supported_links(complete: bool, session_len: usize, dest_has: bool) -> bool {
     if !complete {
         return false;
@@ -203,7 +205,7 @@ pub fn dest_ranges_to_rewrite(
     let mut out = Vec::with_capacity(groups.len());
     for &(path, n) in groups {
         let end = start.saturating_add(n);
-        let incomplete = incomplete_paths.iter().any(|&p| p == path);
+        let incomplete = incomplete_paths.contains(&path);
         if !incomplete && n > 0 {
             out.push(start..end);
         }
@@ -543,7 +545,7 @@ fn parse_link_annot<'a>(
         })
         .unwrap_or([0.0, 0.0, 0.0, 0.0]);
 
-    if let Some(action_obj) = annot.get(b"A").ok() {
+    if let Ok(action_obj) = annot.get(b"A") {
         let action = resolve_dict(doc, action_obj)?;
         let s = action.get(b"S").ok().and_then(as_name).unwrap_or_default();
         let uri = action.get(b"URI").ok().and_then(pdf_string);
@@ -560,7 +562,7 @@ fn parse_link_annot<'a>(
         });
     }
 
-    if let Some(dest) = annot.get(b"Dest").ok() {
+    if let Ok(dest) = annot.get(b"Dest") {
         let named = dest_is_named(doc, dest);
         let class = classify_link_action("GoTo", None, named);
         let dest_page = dest_page_index(doc, dest, page_index_of);

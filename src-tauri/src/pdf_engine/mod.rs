@@ -36,6 +36,7 @@ pub mod overlay;
 pub mod poster;
 pub mod qpdf;
 pub mod render;
+#[cfg(test)]
 pub mod source_content;
 #[cfg(test)]
 mod source_content_integ;
@@ -597,6 +598,7 @@ pub(crate) fn spec_is_full_range(spec: &str, n: u32) -> bool {
 
 /// Non-destructive optimization of the combined document: assemble + linearize
 /// + generate object streams in one qpdf pass. Keeps text and vectors intact.
+///
 /// The first group's file is qpdf's primary input (its `--pages` slot is `.`),
 /// which preserves document-level data — outline/bookmarks, Info metadata —
 /// that the `--empty` form would strip. If the input is a single unmodified

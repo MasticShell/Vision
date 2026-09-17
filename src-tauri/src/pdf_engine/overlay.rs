@@ -283,8 +283,8 @@ fn build_overlay(
     let xref = buf.len();
     buf.extend_from_slice(format!("xref\n0 {}\n", total_objs + 1).as_bytes());
     buf.extend_from_slice(b"0000000000 65535 f \n");
-    for n in 1..=total_objs {
-        buf.extend_from_slice(format!("{:010} 00000 n \n", off[n]).as_bytes());
+    for offset in &off[1..=total_objs] {
+        buf.extend_from_slice(format!("{:010} 00000 n \n", offset).as_bytes());
     }
     buf.extend_from_slice(
         format!(
@@ -367,8 +367,8 @@ fn build_watermark(
     let xref = buf.len();
     buf.extend_from_slice(format!("xref\n0 {}\n", total_objs + 1).as_bytes());
     buf.extend_from_slice(b"0000000000 65535 f \n");
-    for n in 1..=total_objs {
-        buf.extend_from_slice(format!("{:010} 00000 n \n", off[n]).as_bytes());
+    for offset in &off[1..=total_objs] {
+        buf.extend_from_slice(format!("{:010} 00000 n \n", offset).as_bytes());
     }
     buf.extend_from_slice(
         format!(

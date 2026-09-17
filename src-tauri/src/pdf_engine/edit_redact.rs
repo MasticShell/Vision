@@ -16,7 +16,11 @@ use std::path::Path;
 pub struct RedactRegion {
     pub page_index: u32,
     pub rect: PdfRectIn,
+    /// Fill color for the redaction box (e.g. #000000). Preserved for M2 PDFium rendering.
+    #[allow(dead_code)]
     pub fill: Option<String>,
+    /// Optional label displayed on the redaction (e.g. "CONFIDENTIAL"). Preserved for M2.
+    #[allow(dead_code)]
     pub label: Option<String>,
 }
 
@@ -68,19 +72,19 @@ pub fn verify_redaction(
     }
     let mut doc = Document::load(dest)
         .map_err(|e| AppError::engine_failed(format!("Could not read the PDF: {e}")))?;
-    let _ = doc.decompress();
+    doc.decompress();
 
     let pages = doc.get_pages();
     for region in regions {
-        if pages.get(&(region.page_index + 1)).is_none() {
+        if !pages.contains_key(&(region.page_index + 1)) {
             return Err(redaction_page_missing(region.page_index));
         }
     }
 
-    if !page_content_probes.is_empty() {
-        if probe_remains_on_redacted_pages(&doc, page_content_probes, regions) {
-            return Err(redaction_incomplete());
-        }
+    if !page_content_probes.is_empty()
+        && probe_remains_on_redacted_pages(&doc, page_content_probes, regions)
+    {
+        return Err(redaction_incomplete());
     }
 
     let mut warnings = Vec::new();
@@ -189,7 +193,7 @@ fn append_page_xobjects(doc: &Document, page_id: ObjectId, out: &mut Vec<u8>) {
     }
 }
 
-fn ancestor_resource_dicts<'a>(doc: &'a Document, start: ObjectId) -> Vec<&'a Dictionary> {
+fn ancestor_resource_dicts(doc: &Document, start: ObjectId) -> Vec<&Dictionary> {
     let mut dicts = Vec::new();
     let mut current = Some(start);
     let mut seen = HashSet::new();

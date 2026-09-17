@@ -276,6 +276,7 @@ impl Walker<'_> {
         )
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn walk_stream(
         &mut self,
         page_index: u32,
@@ -518,6 +519,7 @@ impl Walker<'_> {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn enter_form(
         &mut self,
         page_index: u32,
@@ -558,6 +560,7 @@ impl Walker<'_> {
         result
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn emit_text(
         &mut self,
         page_index: u32,
@@ -627,6 +630,7 @@ impl Walker<'_> {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn emit_image(
         &mut self,
         page_index: u32,
@@ -839,7 +843,7 @@ fn object_dict(doc: &Document, id: ObjectId) -> Option<&Dictionary> {
     }
 }
 
-fn resources_of<'a>(doc: &'a Document, owner: ObjectId) -> Option<&'a Dictionary> {
+fn resources_of(doc: &Document, owner: ObjectId) -> Option<&Dictionary> {
     match object_dict(doc, owner)?.get(b"Resources").ok()? {
         Object::Dictionary(d) => Some(d),
         Object::Reference(id) => doc.get_dictionary(*id).ok(),
@@ -898,7 +902,7 @@ fn font_dict<'a>(doc: &'a Document, font: &FontRef<'a>) -> Option<&'a Dictionary
     }
 }
 
-fn xobject_subtype<'a>(doc: &'a Document, id: ObjectId) -> Option<&'a [u8]> {
+fn xobject_subtype(doc: &Document, id: ObjectId) -> Option<&[u8]> {
     object_dict(doc, id)?.get(b"Subtype").ok()?.as_name().ok()
 }
 

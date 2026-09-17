@@ -51,14 +51,14 @@ fn page_size(app: &tauri::AppHandle, merged: &str, page: u32, dir: &std::path::P
 
 fn build_overlay(
     out: &str,
-    w: f64,
-    h: f64,
+    size: (f64, f64),
     text: &str,
-    x: f64,
-    y: f64,
+    pos: (f64, f64),
     fs: f64,
     color: [f64; 3],
 ) -> Result<(), AppError> {
+    let (w, h) = size;
+    let (x, y) = pos;
     let content = format!(
         "{:.3} {:.3} {:.3} rg\nBT\n/F1 {fs:.1} Tf\n{x:.1} {y:.1} Td\n({}) Tj\nET\n",
         color[0],
@@ -93,8 +93,8 @@ fn build_overlay(
     );
     let xref = buf.len();
     buf.extend_from_slice(b"xref\n0 6\n0000000000 65535 f \n");
-    for n in 1..=5 {
-        buf.extend_from_slice(format!("{:010} 00000 n \n", off[n]).as_bytes());
+    for offset in &off[1..=5] {
+        buf.extend_from_slice(format!("{:010} 00000 n \n", offset).as_bytes());
     }
     buf.extend_from_slice(
         format!("trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n").as_bytes(),
@@ -160,7 +160,7 @@ pub fn stamp_text(
             (h - fs) / 2.0
         };
 
-        build_overlay(&overlay, w, h, text, x, y, fs, color)?;
+        build_overlay(&overlay, (w, h), text, (x, y), fs, color)?;
         run_qpdf(
             app,
             handle,

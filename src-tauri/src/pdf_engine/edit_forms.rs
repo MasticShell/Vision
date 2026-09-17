@@ -5,12 +5,15 @@
 //! check / optional xref rewrite — not the form writer.
 
 use crate::error::AppError;
+#[cfg(test)]
 use crate::pdf_engine::crop;
 use crate::pdf_engine::metadata::{decode_pdf_string, encode_pdf_string};
 use crate::pdf_engine::qpdf;
+#[cfg(test)]
 use crate::pdf_engine::validate_output::{
     catalog_flags_from_doc, content_digest, validate_staged_pdf, OutputSnapshot, PageSnapshot,
 };
+#[cfg(test)]
 use crate::utils::safe_output;
 use lopdf::{Dictionary, Document, Object, ObjectId, Stream};
 use serde::{Deserialize, Serialize};
@@ -167,6 +170,7 @@ pub fn classify_field(ft: Option<&[u8]>, ff: u32) -> Option<FormFieldKind> {
 }
 
 /// `/XFA` (stream or array) or `/NeedsRendering` → `UNSUPPORTED_XFA`.
+#[cfg(test)]
 pub fn detect_xfa(path: &str) -> Result<(), AppError> {
     super::require_input(path)?;
     size_gate(path)?;
@@ -211,11 +215,13 @@ pub fn apply_form_values(path: &str, values: &[FormValue], flatten: bool) -> Res
 }
 
 /// F14 save predicate: stamps **or** form values are an edit.
+#[cfg(test)]
 pub fn has_edits(stamp_count: usize, form_values: &[FormValue]) -> bool {
     stamp_count > 0 || !form_values.is_empty()
 }
 
 /// Form-path publish (staged tmp → `#34` → dest). Original file is never overwritten.
+#[cfg(test)]
 pub fn fill_pdf_form(
     input: &str,
     output: &str,
@@ -350,7 +356,7 @@ fn acroform_dict(doc: &Document) -> Option<&Dictionary> {
     }
 }
 
-fn acroform_fields<'a>(doc: &'a Document) -> Result<Option<&'a [Object]>, AppError> {
+fn acroform_fields(doc: &Document) -> Result<Option<&[Object]>, AppError> {
     let Some(acro) = acroform_dict(doc) else {
         return Ok(None);
     };
@@ -367,17 +373,13 @@ fn walk_fields(doc: &Document) -> Result<Vec<WalkedField>, AppError> {
     };
     let pages = page_index_map(doc);
     let mut state = WalkState::new();
+    let mut walker = FormTreeWalker {
+        doc,
+        pages: &pages,
+        state: &mut state,
+    };
     for (i, obj) in fields.iter().enumerate() {
-        walk_node(
-            doc,
-            obj,
-            &Inherited::default(),
-            "",
-            0,
-            Some(i),
-            &pages,
-            &mut state,
-        )?;
+        walker.walk_node(obj, &Inherited::default(), "", 0, Some(i))?;
     }
     Ok(state.out)
 }
@@ -389,156 +391,157 @@ fn page_index_map(doc: &Document) -> BTreeMap<ObjectId, u32> {
         .collect()
 }
 
-fn walk_node(
-    doc: &Document,
-    obj: &Object,
-    inherited: &Inherited,
-    parent_name: &str,
-    depth: usize,
-    inline_fields_index: Option<usize>,
-    pages: &BTreeMap<ObjectId, u32>,
-    state: &mut WalkState,
-) -> Result<(), AppError> {
-    if depth > MAX_WALK_DEPTH {
-        return Err(malformed("This form's field tree is nested too deeply."));
-    }
-    state.touch()?;
+struct FormTreeWalker<'a> {
+    doc: &'a Document,
+    pages: &'a BTreeMap<ObjectId, u32>,
+    state: &'a mut WalkState,
+}
 
-    let (dict, id) = match resolve_dict(doc, obj) {
-        Ok(v) => v,
-        Err(e) => return Err(e),
-    };
-
-    if let Some(id) = id {
-        if state.visiting.contains(&id) {
-            return Err(malformed("This form's field tree refers back to itself."));
+impl<'a> FormTreeWalker<'a> {
+    fn walk_node(
+        &mut self,
+        obj: &Object,
+        inherited: &Inherited,
+        parent_name: &str,
+        depth: usize,
+        inline_fields_index: Option<usize>,
+    ) -> Result<(), AppError> {
+        if depth > MAX_WALK_DEPTH {
+            return Err(malformed("This form's field tree is nested too deeply."));
         }
-        if !state.seen.insert(id) {
-            return Ok(());
-        }
-        state.visiting.insert(id);
-    }
+        self.state.touch()?;
 
-    let result = (|| -> Result<(), AppError> {
-        let merged = merge_inherit(dict, inherited);
-        let name = field_name(dict, parent_name);
+        let (dict, id) = resolve_dict(self.doc, obj)?;
 
-        if let Some(kids_obj) = dict.get(b"Kids").ok() {
-            let Object::Array(kids) = kids_obj else {
-                return Err(malformed("A form field /Kids entry is not an array."));
-            };
-            let kind = classify_field(merged.ft.as_deref(), merged.ff.unwrap_or(0));
-            if kind == Some(FormFieldKind::Radio) {
-                push_radio(doc, dict, id, &merged, &name, kids, pages, state)?;
+        if let Some(id) = id {
+            if self.state.visiting.contains(&id) {
+                return Err(malformed("This form's field tree refers back to itself."));
+            }
+            if !self.state.seen.insert(id) {
                 return Ok(());
             }
-            for kid in kids {
-                if !kid_is_dict(doc, kid) {
-                    return Err(malformed("A form field /Kids entry is not a dictionary."));
-                }
-                walk_node(doc, kid, &merged, &name, depth + 1, None, pages, state)?;
-            }
-            return Ok(());
+            self.state.visiting.insert(id);
         }
 
-        let Some(kind) = classify_field(merged.ft.as_deref(), merged.ff.unwrap_or(0)) else {
-            if merged.ft.is_none() {
-                return Err(malformed(
-                    "A form field is missing a type (/FT) after inheriting from its parent.",
-                ));
-            }
-            return Ok(());
-        };
+        let result = (|| -> Result<(), AppError> {
+            let merged = merge_inherit(dict, inherited);
+            let name = field_name(dict, parent_name);
 
-        let widget_ids = if let Some(id) = id {
-            vec![id]
-        } else {
-            Vec::new()
-        };
-        let (page_index, rect) = widget_geom(doc, dict, &widget_ids, pages);
-        let export_values = export_names_from_dict(doc, dict);
-        let hidden = widget_hidden(dict);
-        state.out.push(WalkedField {
-            name,
-            kind,
-            value_id: id,
-            inline_fields_index: if id.is_none() {
-                inline_fields_index
+            if let Ok(kids_obj) = dict.get(b"Kids") {
+                let Object::Array(kids) = kids_obj else {
+                    return Err(malformed("A form field /Kids entry is not an array."));
+                };
+                let kind = classify_field(merged.ft.as_deref(), merged.ff.unwrap_or(0));
+                if kind == Some(FormFieldKind::Radio) {
+                    self.push_radio(dict, id, &merged, &name, kids)?;
+                    return Ok(());
+                }
+                for kid in kids {
+                    if !kid_is_dict(self.doc, kid) {
+                        return Err(malformed("A form field /Kids entry is not a dictionary."));
+                    }
+                    self.walk_node(kid, &merged, &name, depth + 1, None)?;
+                }
+                return Ok(());
+            }
+
+            let Some(kind) = classify_field(merged.ft.as_deref(), merged.ff.unwrap_or(0)) else {
+                if merged.ft.is_none() {
+                    return Err(malformed(
+                        "A form field is missing a type (/FT) after inheriting from its parent.",
+                    ));
+                }
+                return Ok(());
+            };
+
+            let widget_ids = if let Some(id) = id {
+                vec![id]
             } else {
-                None
-            },
+                Vec::new()
+            };
+            let (page_index, rect) = widget_geom(self.doc, dict, &widget_ids, self.pages);
+            let export_values = export_names_from_dict(self.doc, dict);
+            let hidden = widget_hidden(dict);
+            self.state.out.push(WalkedField {
+                name,
+                kind,
+                value_id: id,
+                inline_fields_index: if id.is_none() {
+                    inline_fields_index
+                } else {
+                    None
+                },
+                widget_ids,
+                page_index,
+                rect,
+                value: merged.v.as_ref().and_then(|v| object_text(self.doc, v)),
+                export_values,
+                choices: opt_choices(self.doc, merged.opt.as_ref()),
+                read_only: merged.ff.unwrap_or(0) & FF_READONLY != 0,
+                hidden,
+                max_len: merged.max_len,
+                multiline: merged.ff.unwrap_or(0) & FF_MULTILINE != 0,
+                combo_edit: merged.ff.unwrap_or(0) & FF_EDIT != 0,
+            });
+            Ok(())
+        })();
+
+        if let Some(id) = id {
+            self.state.visiting.remove(&id);
+        }
+        result
+    }
+
+    fn push_radio(
+        &mut self,
+        parent: &Dictionary,
+        parent_id: Option<ObjectId>,
+        merged: &Inherited,
+        name: &str,
+        kids: &[Object],
+    ) -> Result<(), AppError> {
+        let mut widget_ids = Vec::new();
+        let mut export_values = Vec::new();
+        let mut hidden = widget_hidden(parent);
+        let mut first_geom: Option<(Option<u32>, Option<FormRect>)> = None;
+        for kid in kids {
+            if !kid_is_dict(self.doc, kid) {
+                return Err(malformed("A radio button widget is not a dictionary."));
+            }
+            let (kd, kid_id) = resolve_dict(self.doc, kid)?;
+            if let Some(id) = kid_id {
+                widget_ids.push(id);
+            }
+            hidden = hidden || widget_hidden(kd);
+            for n in export_names_from_dict(self.doc, kd) {
+                if !export_values.contains(&n) {
+                    export_values.push(n);
+                }
+            }
+            if first_geom.is_none() {
+                first_geom = Some(widget_geom(self.doc, kd, &widget_ids, self.pages));
+            }
+        }
+        let (page_index, rect) = first_geom.unwrap_or((None, None));
+        self.state.out.push(WalkedField {
+            name: name.to_string(),
+            kind: FormFieldKind::Radio,
+            value_id: parent_id,
+            inline_fields_index: None,
             widget_ids,
             page_index,
             rect,
-            value: merged.v.as_ref().and_then(|v| object_text(doc, v)),
+            value: merged.v.as_ref().and_then(|v| object_text(self.doc, v)),
             export_values,
-            choices: opt_choices(doc, merged.opt.as_ref()),
+            choices: Vec::new(),
             read_only: merged.ff.unwrap_or(0) & FF_READONLY != 0,
             hidden,
-            max_len: merged.max_len,
-            multiline: merged.ff.unwrap_or(0) & FF_MULTILINE != 0,
-            combo_edit: merged.ff.unwrap_or(0) & FF_EDIT != 0,
+            max_len: None,
+            multiline: false,
+            combo_edit: false,
         });
         Ok(())
-    })();
-
-    if let Some(id) = id {
-        state.visiting.remove(&id);
     }
-    result
-}
-
-fn push_radio(
-    doc: &Document,
-    parent: &Dictionary,
-    parent_id: Option<ObjectId>,
-    merged: &Inherited,
-    name: &str,
-    kids: &[Object],
-    pages: &BTreeMap<ObjectId, u32>,
-    state: &mut WalkState,
-) -> Result<(), AppError> {
-    let mut widget_ids = Vec::new();
-    let mut export_values = Vec::new();
-    let mut hidden = widget_hidden(parent);
-    let mut first_geom: Option<(Option<u32>, Option<FormRect>)> = None;
-    for kid in kids {
-        if !kid_is_dict(doc, kid) {
-            return Err(malformed("A radio button widget is not a dictionary."));
-        }
-        let (kd, kid_id) = resolve_dict(doc, kid)?;
-        if let Some(id) = kid_id {
-            widget_ids.push(id);
-        }
-        hidden = hidden || widget_hidden(kd);
-        for n in export_names_from_dict(doc, kd) {
-            if !export_values.iter().any(|e| e == &n) {
-                export_values.push(n);
-            }
-        }
-        if first_geom.is_none() {
-            first_geom = Some(widget_geom(doc, kd, &widget_ids, pages));
-        }
-    }
-    let (page_index, rect) = first_geom.unwrap_or((None, None));
-    state.out.push(WalkedField {
-        name: name.to_string(),
-        kind: FormFieldKind::Radio,
-        value_id: parent_id,
-        inline_fields_index: None,
-        widget_ids,
-        page_index,
-        rect,
-        value: merged.v.as_ref().and_then(|v| object_text(doc, v)),
-        export_values,
-        choices: Vec::new(),
-        read_only: merged.ff.unwrap_or(0) & FF_READONLY != 0,
-        hidden,
-        max_len: None,
-        multiline: false,
-        combo_edit: false,
-    });
-    Ok(())
 }
 
 fn resolve_dict<'a>(
@@ -1596,6 +1599,7 @@ fn line_hex(font: &NotoFont, text: &str) -> (String, f64) {
     (hex, w)
 }
 
+#[cfg(test)]
 fn snapshot_for_form_dest(
     source: &str,
     dest: &Path,
@@ -1644,6 +1648,7 @@ pub(crate) fn qpdf_rewrite(input: &Path, output: &Path) -> Result<(), AppError> 
     Ok(())
 }
 
+#[cfg(test)]
 fn run_qpdf_check(exe: &Path, args: &[String]) -> Result<(i32, String), AppError> {
     let output = std::process::Command::new(exe)
         .args(args)

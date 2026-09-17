@@ -1,5 +1,6 @@
 //! Parse Tesseract `--list-langs` output and validate a `-l` language string.
 
+#[cfg(test)]
 use crate::error::AppError;
 use std::collections::HashSet;
 
@@ -30,6 +31,7 @@ pub fn parse_tesseract_list_langs(stdout: &str) -> Vec<String> {
 
 /// Reject empty / whitespace / empty `+` parts (`OCR_LANG_EMPTY`) and any
 /// code not in `installed` (`OCR_LANG_MISSING`).
+#[cfg(test)]
 pub fn validate_ocr_lang(lang: &str, installed: &[&str]) -> Result<(), AppError> {
     let trimmed = lang.trim();
     if trimmed.is_empty() {
@@ -40,13 +42,14 @@ pub fn validate_ocr_lang(lang: &str, installed: &[&str]) -> Result<(), AppError>
         return Err(empty_lang());
     }
     for part in parts {
-        if !installed.iter().any(|code| *code == part) {
+        if !installed.contains(&part) {
             return Err(missing_lang(part));
         }
     }
     Ok(())
 }
 
+#[cfg(test)]
 fn empty_lang() -> AppError {
     AppError::new(
         "OCR_LANG_EMPTY",
@@ -56,6 +59,7 @@ fn empty_lang() -> AppError {
     .with_suggestion("Select one or more languages from the packs installed on this machine.")
 }
 
+#[cfg(test)]
 fn missing_lang(code: &str) -> AppError {
     AppError::new(
         "OCR_LANG_MISSING",

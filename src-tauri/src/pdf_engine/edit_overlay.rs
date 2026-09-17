@@ -492,7 +492,7 @@ impl PdfBuilder {
 
 /// Map unrotated page-box-relative point into displayed overlay space (BL origin).
 pub fn unrotated_to_display(rx: f64, ry: f64, box_w: f64, box_h: f64, rotate: i64) -> (f64, f64) {
-    match ((rotate % 360) + 360) % 360 {
+    match rotate.rem_euclid(360) {
         90 => (ry, box_w - rx),
         180 => (box_w - rx, box_h - ry),
         270 => (box_h - ry, rx),
@@ -1245,7 +1245,7 @@ pub(crate) fn image_meet_blit(
 fn overlay_page_box(vis: [f64; 4], rotate: i64) -> [f64; 4] {
     let w = vis[2] - vis[0];
     let h = vis[3] - vis[1];
-    match ((rotate % 360) + 360) % 360 {
+    match rotate.rem_euclid(360) {
         90 => [vis[1], w - vis[2], vis[3], w - vis[0]],
         180 => [w - vis[2], h - vis[3], w - vis[0], h - vis[1]],
         270 => [h - vis[3], vis[0], h - vis[1], vis[2]],
@@ -1367,40 +1367,6 @@ fn extra_group_paths(groups: &[PageGroup]) -> Vec<&str> {
         }
     }
     extra
-}
-
-/// Copy or assemble the primary infile onto `dest` (never `--empty`).
-fn assemble_primary_to_tmp<F>(
-    groups: &[PageGroup],
-    page_counts: &[u32],
-    dest: &str,
-    run: &mut F,
-) -> Result<(), AppError>
-where
-    F: FnMut(&[String]) -> Result<(), AppError>,
-{
-    if groups.is_empty() {
-        return Err(AppError::new("NO_PAGES", "No pages", "Add a PDF first."));
-    }
-    let identity = groups.len() == 1 && super::spec_is_full_range(&groups[0].pages, page_counts[0]);
-    if identity {
-        std::fs::copy(&groups[0].path, dest)
-            .map_err(|e| AppError::io("Could not stage the PDF.", e))?;
-        return Ok(());
-    }
-    let mut args = vec![
-        groups[0].path.clone(),
-        "--pages".into(),
-        ".".into(),
-        groups[0].pages.clone(),
-    ];
-    for g in &groups[1..] {
-        args.push(g.path.clone());
-        args.push(g.pages.clone());
-    }
-    args.push("--".into());
-    args.push(dest.to_string());
-    run(&args)
 }
 
 /// qpdf argv for Edit PDF. Never uses `--empty`: the first source is the
@@ -1609,6 +1575,7 @@ where
 }
 
 /// Build the overlay and run qpdf via `run`. Used by tests (system/`"qpdf"`).
+#[cfg(test)]
 pub(crate) fn export_edit_pdf_with_runner<F>(
     groups: &[PageGroup],
     output: &str,
@@ -1680,6 +1647,7 @@ where
 }
 
 /// Same as [`export_edit_pdf_with_runner`], with an explicit `qpdf --check` binary.
+#[allow(clippy::too_many_arguments)]
 fn export_edit_pdf_with_check_exe<F>(
     groups: &[PageGroup],
     output: &str,
@@ -1909,6 +1877,7 @@ fn run_qpdf_check_argv(
     ))
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn edit_pdf_overlays(
     app: &tauri::AppHandle,
     handle: &Arc<JobHandle>,
@@ -2127,9 +2096,8 @@ fn write_overlay_pdf(
 
     let mut img_ids: Vec<(usize, Option<usize>)> = Vec::new();
     for rast in &rasters {
-        let smask_id = if rast.alpha.is_some() {
+        let smask_id = if let Some(a) = &rast.alpha {
             let sid = b.begin();
-            let a = rast.alpha.as_ref().unwrap();
             b.s(&format!(
                 "{sid} 0 obj\n<< /Type /XObject /Subtype /Image /Width {} /Height {} \
                  /ColorSpace /DeviceGray /BitsPerComponent 8 /Length {} >>\nstream\n",

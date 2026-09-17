@@ -322,7 +322,7 @@ pub fn validate_staged_pdf(
             ));
         }
         let candidates = dest_page_digests(&doc, id);
-        if !candidates.iter().any(|d| *d == expected.content_digest) {
+        if !candidates.contains(&expected.content_digest) {
             return Err(fatal_staged(
                 staged,
                 format!("Page {page_no} content does not match the source."),
