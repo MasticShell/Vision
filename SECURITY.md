@@ -6,7 +6,7 @@ Vision is an entirely local, offline application designed to process untrusted d
 Security fixes target the latest published release and the current default branch.
 
 ## Reporting a vulnerability
-Please do not post exploit details or sensitive sample documents in a public issue. Email **kul3562@gmail.com** with the subject `Vision security report`.
+Please do not post exploit details or sensitive sample documents in a public issue. `Vision security report`.
 
 A useful report includes:
 - A short description of the issue and its potential impact.
