@@ -14,7 +14,7 @@ Vision is a FOSS Linux application born from the foundations of OffPDF, redesign
 
 **Your files never leave your computer.** Vision processes documents locally, coordinating powerful engines like `qpdf` through a robust, memory-safe Rust backend.
 
-**Fully developped by AI** to fit my needs. I am not a developer, I don't aim at pretending my project is scalable etc. AI reviews its functionality, stability, UX and security : these are the 4 pillars that are consistently enforced across prompts. I only review the usability and stability, through the user interface of Vision.
+**Fully developped by AI** to fit my needs. I am not a developer, I don't aim at pretending my project is scalable etc. AI reviews its functionality, stability, UX and security : these are the 4 pillars that are consistently enforced across prompts. I only review the usability and stability, through the user interface of Vision. StirlingPDF is too heavy for everyday use, although I like having all its tools, and apart from it nothing really exists as a ready to use app. Here is where Vision comes in handy : a reader when you need it, a light editor when you need it, and a heavy editor when you need it.
 
 ## Development & Architecture
 Vision is currently in active development (Milestone 1). Please refer to the following documents for our engineering principles:
